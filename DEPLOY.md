@@ -102,12 +102,28 @@ server {
 
 ## 七、创建账号
 
-**系统没有开放注册接口**，这是刻意设计——auth 模块只有登录、改密、恢复码三类能力，没有 `register`/`signup`。
+**系统没有开放注册接口**，这是刻意设计——auth 模块只有登录、改密、恢复码三类能力，没有 `register`/`signup`，Web 端也没有注册页。
 
-账号只能由你直接在数据库创建（密码用 bcrypt 哈希）：
+推荐用仓库自带的脚本，一条命令建账号（顺带签发 App 用的 API Key）：
 
 ```bash
-# 生成 bcrypt 哈希（cost=10，与 auth.service 保持一致）
+export SUDA_DATABASE_URL='postgres://zhixing:你的密码@127.0.0.1:5432/zhixing'
+
+bash scripts/add-user.sh admin '你的密码' '管理员'      # 新建账号 + 签发 App 密钥
+bash scripts/add-user.sh admin '新密码' --reset-pw      # 重置密码
+```
+
+输出示例（**API Key 明文只出现这一次**，库里只存 sha256，丢了只能重新签发）：
+
+```
+✅ 账号已创建
+   用户名   ：admin
+   API Key  ：zx_8f62ca00e13a1a829a3bdd20219a0af1
+```
+
+也可以手工操作（密码用 bcrypt 哈希，cost=10，与 auth.service 保持一致）：
+
+```bash
 node -e "console.log(require('bcryptjs').hashSync('你的密码', 10))"
 ```
 
@@ -117,6 +133,14 @@ VALUES ('admin', '上一步生成的哈希');
 ```
 
 登录后会生成恢复码，务必保存——忘记密码时只能靠它重置。
+
+### 多用户数据隔离
+
+每个账号的联系人 / 短信 / 通话 / 标签 / 时光机批次 / API Key 全部按 `user_id` 隔离：
+
+- 用 A 的密钥**看不到** B 的任何数据（列表接口按 `user_id` 过滤）
+- 用 A 的密钥**删不掉** B 的数据（批量删除先按 `user_id` 收敛，越权 id 静默忽略，返回 `deleted: 0`）
+- 同步开关、模板、分层配置同样按用户独立存储（键名形如 `sms_sync_enabled:<userId>`）
 
 ## 八、从旧环境迁移数据
 
