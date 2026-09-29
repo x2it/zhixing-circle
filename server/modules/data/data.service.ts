@@ -2209,15 +2209,42 @@ export class DataService {
 
   async clearAll(): Promise<{
     success: boolean;
-    cleared: { contacts: number; tags: number; followups: number; batches: number; messages: number };
+    cleared: {
+      contacts: number;
+      tags: number;
+      followups: number;
+      batches: number;
+      messages: number;
+      calls: number;
+    };
   }> {
     const userId = UserContext.getUserId();
+
+    // 「清空」本身必须留痕：先落一条审计，并在清理流水时排除它，
+    // 否则事后无法追溯「谁在什么时候清空了什么」——数据治理的底线。
+    let auditId: string | null = null;
+    try {
+      const [row] = await this.db
+        .insert(operationLogs)
+        .values({
+          userId,
+          action: 'data_clear_all',
+          channel: 'app',
+          summary: { stage: 'start', requestedAt: new Date().toISOString() },
+        })
+        .returning({ id: operationLogs.id });
+      auditId = row?.id ?? null;
+    } catch {
+      // 审计失败不阻塞清空
+    }
+
     const result = await this.db.transaction(async (tx) => {
       // 删除顺序（按依赖反序）：followups / messages / merge_logs / contact_tags / contacts / tags
       // → 再清 traceability 表 import_batches / operation_logs
       // 多用户下全部仅作用于当前 userId，绝不触碰他人数据。
       const followupsDeleted = await tx.delete(followups).where(eq(followups.userId, userId)).returning({ id: followups.id });
       const messagesDeleted = await tx.delete(messages).where(eq(messages.userId, userId)).returning({ id: messages.id });
+      const callsDeleted = await tx.delete(calls).where(eq(calls.userId, userId)).returning({ id: calls.id });
       const mergeLogsDeleted = await tx.delete(mergeLogs).where(eq(mergeLogs.userId, userId)).returning({ id: mergeLogs.id });
       const contactTagsDeleted = await tx.delete(contactTags).where(sql`${contactTags.contactId} IN (SELECT id FROM contacts WHERE user_id = ${userId})`).returning({ id: contactTags.id });
       const contactsDeleted = await tx.delete(contacts).where(eq(contacts.userId, userId)).returning({ id: contacts.id });
@@ -2225,7 +2252,12 @@ export class DataService {
 
       // ===== 追溯层清理（关键：否则清空后「数据时光机」仍残留旧批次，看起来像没清干净）=====
       // operation_logs 必须先于 import_batches 删除，二者通过 batchId 逻辑关联。
-      await tx.delete(operationLogs).where(eq(operationLogs.userId, userId));
+      // 保留本次清空自身的审计记录，否则「清空」这个动作将无从追溯。
+      await tx.delete(operationLogs).where(
+        auditId
+          ? and(eq(operationLogs.userId, userId), sql`${operationLogs.id} <> ${auditId}`)
+          : eq(operationLogs.userId, userId),
+      );
       const batchesDeleted = await tx.delete(importBatches).where(eq(importBatches.userId, userId)).returning({ id: importBatches.id });
 
       return {
@@ -2234,10 +2266,36 @@ export class DataService {
         followups: followupsDeleted.length,
         batches: batchesDeleted.length,
         messages: messagesDeleted.length,
+        calls: callsDeleted.length,
         contactTags: contactTagsDeleted.length,
         mergeLogs: mergeLogsDeleted.length,
       };
     });
+
+    // 回写实际清除结果，便于事后审计追溯
+    if (auditId) {
+      try {
+        await this.db
+          .update(operationLogs)
+          .set({
+            summary: {
+              stage: 'done',
+              completedAt: new Date().toISOString(),
+              cleared: {
+                contacts: result.contacts,
+                tags: result.tags,
+                followups: result.followups,
+                batches: result.batches,
+                messages: result.messages,
+                calls: result.calls,
+              },
+            },
+          })
+          .where(eq(operationLogs.id, auditId));
+      } catch {
+        // 回写失败不影响主流程
+      }
+    }
 
     return {
       success: true,
@@ -2247,6 +2305,7 @@ export class DataService {
         followups: result.followups,
         batches: result.batches,
         messages: result.messages,
+        calls: result.calls,
       },
     };
   }

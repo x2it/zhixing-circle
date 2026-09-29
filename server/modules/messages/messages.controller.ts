@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import type {
   CreateMessageRequest,
@@ -110,5 +111,21 @@ export class MessagesController {
       phone: body?.phone,
       all: body?.all,
     });
+  }
+
+  /**
+   * 批量删除短信（POST 版，App v2.7.1+ 契约：`POST /messages/batch-delete`）。
+   * 公网网关拦截 DELETE 方法，App 统一改 POST；契约同 DELETE 版：
+   * body { "ids": [...] }，≤200/批，用户隔离，幂等（App 只看 2xx）。
+   */
+  @Post('messages/batch-delete')
+  async batchDelete(@Body() body: { ids?: unknown }): Promise<{ deleted: number }> {
+    if (!Array.isArray(body?.ids) || body.ids.length === 0) {
+      throw new BadRequestException('ids 必须为非空数组');
+    }
+    const ids = (body.ids as unknown[]).filter(
+      (i): i is string => typeof i === 'string' && i.trim() !== '',
+    );
+    return this.messagesService.removeMany({ ids });
   }
 }

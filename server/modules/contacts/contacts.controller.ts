@@ -168,6 +168,17 @@ export class ContactsController {
     return { deleted };
   }
 
+  /**
+   * 批量删除联系人（POST 版，App v2.7.1+ 契约：`POST /contacts/batch-delete`）。
+   *
+   * 背景：App 侧实测公网网关拦截 DELETE 方法，v2.7.1 起统一改用 POST。
+   * 契约与 DELETE 版完全一致：body { "ids": [...] }，≤200/批，用户隔离，幂等。
+   */
+  @Post('batch-delete')
+  async batchDeletePost(@Body() body: { ids?: unknown }): Promise<{ deleted: number }> {
+    return this.batchDelete(body);
+  }
+
   @Delete(':id')
   async remove(@Param('id') id: string): Promise<{ success: boolean }> {
     await this.contactsService.remove(id);

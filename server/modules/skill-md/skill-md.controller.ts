@@ -93,11 +93,18 @@ GET  /api/api-keys/{id}?api_key=xxx      # 查看权限配置
 
 | 数据类型 | 是否支持 | 接口 | 开关 |
 |---|---|---|---|
-| **联系人**（姓名/昵称/电话/双号/微信/公司/职位/地址/生日/邮箱/备注/外部ID） | ✅ 支持 | \`POST /api/contacts\`、\`POST /api/contacts/batch\` | 无 |
-| **标签**（可传 tagNames 自动建标签） | ✅ 支持 | 随联系人一起写入，或 \`POST /api/tags\` | 无 |
-| **跟进记录**（内容/类型/日期/下次跟进） | ✅ 支持 | \`POST /api/followups\`、\`POST /api/followups/batch\` | 无 |
+| **联系人**（姓名/昵称/电话/双号/微信/公司/职位/地址/生日/邮箱/备注/外部ID） | ✅ 支持 | \`POST /api/contacts\`、\`POST /api/contacts/batch\` | 本体数据，无需云端开关（由手机系统通讯录授权控制） |
+| **标签**（可传 tagNames 自动建标签） | ✅ 支持 | 随联系人一起写入，或 \`POST /api/tags\` | 随联系人，无需开关 |
+| **跟进记录**（内容/类型/日期/下次跟进） | ✅ 支持 | \`POST /api/followups\`、\`POST /api/followups/batch\` | 用户在 App 内主动产生，无需开关 |
 | **短信** | ✅ 支持 | \`POST /api/messages\`、\`POST /api/messages/batch\` | \`sms_sync_enabled\`，**默认关闭** |
 | **通话记录**（呼入/呼出/未接/时长/时间/备注） | ✅ 支持 | \`POST /api/calls\`、\`POST /api/calls/batch\` | \`call_sync_enabled\`，**默认关闭** |
+
+**为什么联系人/标签/跟进没有开关**：这三类是用户在 App 里**主动经营的数据**，是这个工具存在的本体——关掉它们等于停用 App 本身，所以不存在"要不要同步"的选项。
+它们的采集合法性由**手机系统层的通讯录授权**控制（Android READ_CONTACTS / iOS 通讯录权限），用户在系统设置里撤销授权即可让 App 立即停止同步——这是比 App 内开关更强、更彻底的开关。
+
+**为什么短信与通话必须有开关**：这两类是从设备**被动采集**的第三方敏感数据，且涉及**对话另一方**的隐私（和谁联系、聊了多久），不是用户在 App 里产生的内容，因此默认关闭、需显式开启。
+
+**开关只控制增量**：关闭同步后，云端已存的存量数据不会自动删除，清除需使用 App / Web 端的清空功能。
 
 > 短信与通话属敏感数据，**默认关闭**。App 端首次备份前应先引导用户授权并调用开关接口开启（\`PUT /api/settings/sms-sync\`、\`PUT /api/settings/call-sync\`）。
 
@@ -592,11 +599,31 @@ GET  /api/batches/operations/logs    操作流水（审计每一次操作）
 - **用户隔离**：只删当前用户的数据，他人 id 一律不删（\`deleted\` 不计入）
 - 级联清理该联系人的跟进记录、标签关联、合并留痕
 
+#### POST /api/contacts/batch-delete、POST /api/messages/batch-delete、POST /api/calls/batch-delete
+
+批量删除的 **POST 版本**，契约与上面的 \`DELETE\` 完全一致（\`{ "ids": [...] }\`，≤200/批，幂等，用户隔离）。
+
+> **为什么要有 POST 版**：公网网关会拦截 \`DELETE\` 方法，App v2.7.1 起已把批量删除全部改用 POST。
+> 通过公网域名调用时请一律使用 POST 版，App 只看状态码是否 \`2xx\`。
+
 #### DELETE /api/batches/batch
 批量删除时光机批次，body \`{ "ids": ["uuid1"], "confirm": "DELETE" }\` → \`{ "results": [...], "totalDeletedContacts": n }\`
 
 - 与「批量回滚」不同：这是**不可恢复**的彻底清理，批次记录连同其名下联系人一并删除
 - \`confirm\` 必须为 \`DELETE\`，否则 \`400\`（防误触）
+
+#### POST /api/data/clear
+
+一键清空云端全部数据（App 端当前唯一的清空通道）：
+联系人 + 标签 + 跟进 + 短信 + **通话** + 导入批次。body 传 \`{}\` 即可，按用户隔离。
+
+\`\`\`json
+{ "success": true, "cleared": { "contacts": 2430, "tags": 47, "followups": 3, "batches": 22, "messages": 18, "calls": 2000 } }
+\`\`\`
+
+> **破坏性操作**：接口层无确认参数，调用前必须由 UI 层做强确认（App 已内置强确认弹窗）。
+> 清空动作本身会保留一条审计记录（其余历史流水一并清除），事后可追溯「何时清空、清了多少」。
+> 清空后 App 点「同步到云端」可全量重建，服务端写入幂等、不会重复。
 
 ### 5. 仪表盘统计
 
