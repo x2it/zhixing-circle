@@ -9,8 +9,9 @@ import {
   Param,
   Query,
   BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
-import { ContactsService } from './contacts.service';
+import { ContactsService, BATCH_LIMIT } from './contacts.service';
 import type {
   Contact,
   Followup,
@@ -140,6 +141,31 @@ export class ContactsController {
       throw new BadRequestException('tier 不能为空');
     }
     return this.contactsService.updateTier(id, body.tier);
+  }
+
+  /**
+   * 批量删除联系人（App 端 v2.7.0 契约）。
+   *
+   * 路由必须写在 @Delete(':id') 之前，否则 'batch' 会被 ':id' 抢先匹配。
+   * 鉴权由全局中间件完成（?api_key=zx_* 或 X-API-Key），无需在此重复校验。
+   */
+  @Delete()
+  @HttpCode(200)
+  async batchDelete(@Body() body: { ids?: unknown }): Promise<{ deleted: number }> {
+    const raw = body?.ids;
+    if (!Array.isArray(raw)) {
+      throw new BadRequestException('ids 必须为数组');
+    }
+    const ids = [...new Set(raw.filter((i): i is string => typeof i === 'string' && i.trim() !== ''))];
+    if (ids.length === 0) {
+      throw new BadRequestException('ids 不能为空');
+    }
+    if (ids.length > BATCH_LIMIT) {
+      throw new BadRequestException(`单批最多 ${BATCH_LIMIT} 条`);
+    }
+    const deleted = await this.contactsService.batchDelete(ids);
+    // 幂等：不存在的 id 静默跳过，仍返回 200（App 只看状态码，重试安全）
+    return { deleted };
   }
 
   @Delete(':id')

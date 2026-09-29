@@ -64,18 +64,65 @@ export class SyncUploadService {
     setInterval(() => this.gc(), 5 * 60 * 1000);
   }
 
+  /**
+   * 补全设备品牌型号。
+   *
+   * App 上报的 deviceInfo 只有「App版本 / 系统版本」（如 "TMA 2.5.2 / Android 16"），
+   * 没有品牌型号，光看批次无法判断是哪台设备同步来的。品牌型号在设备握手时
+   * 已登记进 system_settings（devices:{userId}），这里取最近活跃的那台补上后缀。
+   */
+  private async resolveDeviceSuffix(userId: string): Promise<string> {
+    try {
+      const [row] = await this.db
+        .select({ value: systemSettings.value })
+        .from(systemSettings)
+        .where(eq(systemSettings.key, `devices:${userId}`))
+        .limit(1);
+      if (!row?.value) return '';
+      const list = JSON.parse(row.value) as Array<{
+        deviceBrand?: string;
+        deviceModel?: string;
+        lastSeenAt?: string;
+      }>;
+      if (!Array.isArray(list) || list.length === 0) return '';
+      // 最近活跃的那台设备，最可能就是本次同步的来源
+      const latest = [...list].sort((a, b) =>
+        String(b.lastSeenAt ?? '').localeCompare(String(a.lastSeenAt ?? '')),
+      )[0];
+      const parts = [latest?.deviceBrand, latest?.deviceModel].filter(
+        (v): v is string => !!v && String(v).trim() !== '',
+      );
+      return parts.length > 0 ? ` · ${parts.join(' ')}` : '';
+    } catch {
+      // 设备注册表缺失/损坏不影响同步主流程
+      return '';
+    }
+  }
+
+  /** 把品牌型号后缀并入 deviceInfo，已含则跳过，避免重复拼接 */
+  private withDeviceSuffix(deviceInfo: string | undefined, suffix: string): string | undefined {
+    if (!suffix) return deviceInfo;
+    const base = (deviceInfo ?? '').trim();
+    if (base.includes(suffix.trim())) return base || undefined;
+    return `${base}${suffix}`.trim() || undefined;
+  }
+
   async start(dto: SyncUploadStartRequest): Promise<SyncUploadStartResponse> {
     if (!dto?.kind || !['contacts', 'messages', 'calls'].includes(dto.kind)) {
       throw new BadRequestException('kind 必须为 contacts / messages / calls');
     }
     const userId = UserContext.getUserId();
     const uploadId = crypto.randomUUID();
+    const deviceInfo = this.withDeviceSuffix(
+      dto.deviceInfo,
+      await this.resolveDeviceSuffix(userId),
+    );
     this.sessions.set(uploadId, {
       userId,
       kind: dto.kind,
       items: [],
       batchName: dto.batchName,
-      deviceInfo: dto.deviceInfo,
+      deviceInfo,
       total: typeof dto.total === 'number' && dto.total > 0 ? dto.total : 0,
       startedAt: Date.now(),
       lastChunkAt: Date.now(),
@@ -87,7 +134,7 @@ export class SyncUploadService {
         userId,
         action: 'sync_start',
         channel: 'app_sync',
-        deviceInfo: dto.deviceInfo ?? undefined,
+        deviceInfo: deviceInfo ?? undefined,
         summary: {
           kind: dto.kind,
           uploadId: uploadId.slice(0, 8),

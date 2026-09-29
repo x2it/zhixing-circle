@@ -136,6 +136,23 @@ export interface BatchRevertMultiResponse {
   totalKept: number;
 }
 
+/** 批量删除批次：与批量回滚对称，用于彻底清理选中的同步批次 */
+export interface RemoveBatchesMultiRequest {
+  ids: string[];
+  /** 安全确认串，前端要求用户输入后才允许批量删除 */
+  confirm?: string;
+}
+
+export interface BatchRemoveMultiResponse {
+  results: Array<{
+    id: string;
+    success: boolean;
+    deletedContacts: number;
+    error?: string;
+  }>;
+  totalDeletedContacts: number;
+}
+
 /** 通讯记录去重统计：短信按「号码+内容」，通话按「号码+日期+方向+时长」 */
 export interface CommDedupStat {
   groups: number;

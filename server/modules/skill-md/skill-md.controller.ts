@@ -479,6 +479,10 @@ GET  /api/batches/operations/logs    操作流水（审计每一次操作）
 - \`pageSize\`: 每页数量，默认 20，**上限 100**（超出自动钳制，响应 \`pageSize\` 字段回显实际生效值）
 - \`contactId\`: 按联系人筛选
 - \`phone\`: 按手机号筛选
+- \`keyword\`: 关键词，同时匹配短信内容 / 号码 / 联系人姓名与备注名
+- \`direction\`: \`in\`=收到 / \`out\`=发出
+- \`dateFrom\` / \`dateTo\`: 日期范围 YYYY-MM-DD（含当天）
+- \`sortOrder\`: \`desc\`=最新优先（默认） / \`asc\`=最早优先
 
 **响应：**
 \`\`\`json
@@ -546,9 +550,9 @@ GET  /api/batches/operations/logs    操作流水（审计每一次操作）
 切换开关 → body \`{ "enabled": true }\`
 
 #### GET /api/calls
-通话记录列表（分页，按 callDate 倒序）
+通话记录列表（分页，默认按 callDate 倒序）
 
-**Query：** \`page\`（默认 1）、\`pageSize\`（默认 20，上限 100）、\`contactId\`、\`phone\`
+**Query：** \`page\`（默认 1）、\`pageSize\`（默认 20，上限 200）、\`contactId\`、\`phone\`、\`keyword\`（号码/联系人姓名/备注名）、\`direction\`（in/out/missed）、\`dateFrom\`/\`dateTo\`（YYYY-MM-DD，含当天）、\`minDuration\`/\`maxDuration\`（秒，含端点）、\`sortBy\`（date=通话时间默认 / duration=通话时长）、\`sortOrder\`（desc 默认 / asc）
 
 #### POST /api/calls
 上报单条通话记录
@@ -579,6 +583,20 @@ GET  /api/batches/operations/logs    操作流水（审计每一次操作）
 
 #### DELETE /api/calls
 批量删除，body \`{ "ids": ["uuid1"] }\` → \`{ "deleted": 1 }\`
+
+#### DELETE /api/contacts
+批量删除联系人，body \`{ "ids": ["uuid1", "uuid2"] }\` → \`{ "deleted": 2 }\`
+
+- 单批最多 \`200\` 条；\`ids\` 缺失/非数组/为空 → \`400\`
+- **幂等**：重复删同一批返回 \`200\` 且 \`deleted: 0\`，重试安全
+- **用户隔离**：只删当前用户的数据，他人 id 一律不删（\`deleted\` 不计入）
+- 级联清理该联系人的跟进记录、标签关联、合并留痕
+
+#### DELETE /api/batches/batch
+批量删除时光机批次，body \`{ "ids": ["uuid1"], "confirm": "DELETE" }\` → \`{ "results": [...], "totalDeletedContacts": n }\`
+
+- 与「批量回滚」不同：这是**不可恢复**的彻底清理，批次记录连同其名下联系人一并删除
+- \`confirm\` 必须为 \`DELETE\`，否则 \`400\`（防误触）
 
 ### 5. 仪表盘统计
 

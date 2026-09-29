@@ -9,6 +9,8 @@ import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@lark-apaas/fullstack
 import { importBatches, contacts, followups, operationLogs, contactTags, mergeLogs } from '@server/database/schema';
 import { eq, desc, count, and, inArray, sql } from 'drizzle-orm';
 import type {
+  RemoveBatchesMultiRequest,
+  BatchRemoveMultiResponse,
   ImportBatch,
   ImportBatchListResponse,
   BatchDetailResponse,
@@ -257,6 +259,53 @@ export class BatchesService {
     });
 
     return { results, totalDeleted, totalKept };
+  }
+
+  /**
+   * 批量删除批次（与批量回滚对称）。
+   *
+   * 逐个调用 remove()，单批失败只记入结果不中断其余；外层已有事务包裹在 remove 内部，
+   * 因此不会出现「删了一半」的脏状态。要求传确认串，避免误触导致整批数据清空。
+   */
+  async removeMulti(dto: RemoveBatchesMultiRequest): Promise<BatchRemoveMultiResponse> {
+    const userId = UserContext.getUserId();
+    const ids = [...new Set((dto.ids ?? []).filter(Boolean))];
+    if (ids.length === 0) {
+      throw new BadRequestException('请至少选择 1 个要删除的批次');
+    }
+    if (String(dto.confirm ?? '').trim() !== 'DELETE') {
+      throw new BadRequestException('批量删除需传入确认串 confirm=DELETE');
+    }
+
+    const results: BatchRemoveMultiResponse['results'] = [];
+    let totalDeletedContacts = 0;
+
+    for (const id of ids) {
+      try {
+        const r = await this.remove(id);
+        totalDeletedContacts += r.deletedContacts;
+        results.push({ id, success: true, deletedContacts: r.deletedContacts });
+      } catch (e) {
+        const msg = e instanceof BadRequestException || e instanceof NotFoundException
+          ? e.message
+          : '删除失败';
+        results.push({ id, success: false, deletedContacts: 0, error: msg });
+      }
+    }
+
+    await this.db.insert(operationLogs).values({
+      userId,
+      action: 'batch_remove_multi',
+      channel: 'web_manual',
+      summary: {
+        requested: ids.length,
+        ok: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+        totalDeletedContacts,
+      },
+    });
+
+    return { results, totalDeletedContacts };
   }
 
   /** 操作流水 */

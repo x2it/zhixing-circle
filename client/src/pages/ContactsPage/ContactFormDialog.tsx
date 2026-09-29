@@ -65,6 +65,7 @@ const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
+  const [secondPhone, setSecondPhone] = useState('');
   const [wechat, setWechat] = useState('');
   const [tier, setTier] = useState<ContactTier | ''>('C');
   const [nextFollowupDate, setNextFollowupDate] = useState<Date | undefined>(undefined);
@@ -78,6 +79,7 @@ const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
       setName(initialData?.name || '');
       setNickname(initialData?.nickname || '');
       setPhone(initialData?.phone || '');
+      setSecondPhone(initialData?.secondPhone || '');
       setWechat(initialData?.wechat || '');
       setTier((initialData?.tier as ContactTier) || 'C');
       setNextFollowupDate(initialData?.nextFollowupDate ? new Date(initialData.nextFollowupDate) : undefined);
@@ -105,6 +107,7 @@ const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
       name: name.trim(),
       nickname: nickname.trim() || undefined,
       phone: phone.trim() || undefined,
+      secondPhone: secondPhone.trim() || undefined,
       wechat: wechat.trim() || undefined,
       tier: (tier || 'C') as ContactTier,
       memo: memo.trim() || undefined,
@@ -160,7 +163,7 @@ const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
             </div>
           </div>
 
-          {/* Phone & Wechat */}
+          {/* 电话 & 副号 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>电话</Label>
@@ -171,13 +174,23 @@ const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>微信</Label>
+              <Label>副号</Label>
               <Input
-                value={wechat}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWechat(e.target.value)}
-                placeholder="微信号"
+                value={secondPhone}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSecondPhone(e.target.value)}
+                placeholder="第二个号码（可选）"
               />
             </div>
+          </div>
+
+          {/* Wechat */}
+          <div className="space-y-1.5">
+            <Label>微信</Label>
+            <Input
+              value={wechat}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWechat(e.target.value)}
+              placeholder="微信号"
+            />
           </div>
 
           {/* Tier */}

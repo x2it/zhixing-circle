@@ -38,7 +38,17 @@ export class CallsController {
     dateFrom?: string;
     dateTo?: string;
     direction?: string;
+    minDuration?: string;
+    maxDuration?: string;
+    sortBy?: string;
+    sortOrder?: string;
   }): Promise<CallListResponse> {
+    // 时长参数为纯数字字符串才生效，"abc"/空串一律忽略
+    const toInt = (v?: string): number | undefined => {
+      if (v === undefined || v === null || String(v).trim() === '') return undefined;
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : undefined;
+    };
     return this.callsService.findAll({
       page: query.page ? Number(query.page) : undefined,
       pageSize: query.pageSize ? Number(query.pageSize) : undefined,
@@ -48,6 +58,10 @@ export class CallsController {
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
       direction: query.direction,
+      minDuration: toInt(query.minDuration),
+      maxDuration: toInt(query.maxDuration),
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
     });
   }
 

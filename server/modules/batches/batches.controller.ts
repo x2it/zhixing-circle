@@ -16,6 +16,8 @@ import type {
   BatchRevertResponse,
   BatchRevertMultiResponse,
   RevertBatchesMultiRequest,
+  RemoveBatchesMultiRequest,
+  BatchRemoveMultiResponse,
   MergeBatchesRequest,
   OperationLogListResponse,
 } from '@shared/api.interface';
@@ -68,6 +70,13 @@ export class BatchesController {
   @Post('revert-multi')
   async revertMulti(@Body() dto: RevertBatchesMultiRequest): Promise<BatchRevertMultiResponse> {
     return this.batchesService.revertMulti(dto);
+  }
+
+  @Delete('batch')
+  async removeMulti(
+    @Body() dto: RemoveBatchesMultiRequest,
+  ): Promise<BatchRemoveMultiResponse> {
+    return this.batchesService.removeMulti(dto ?? { ids: [] });
   }
 
   @Delete(':id')

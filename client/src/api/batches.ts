@@ -6,6 +6,7 @@ import type {
   BatchDiffResponse,
   BatchRevertResponse,
   BatchRevertMultiResponse,
+  BatchRemoveMultiResponse,
 } from '@shared/api.interface';
 
 export async function getBatches(): Promise<ImportBatch[]> {
@@ -66,6 +67,22 @@ export async function mergeBatches(
 }
 
 /** 批量回滚（时光机多选/全选）：逐条独立执行，单条失败不影响其余 */
+/** 批量删除批次：与批量回滚对称，彻底清理选中的批次及其联系人 */
+export async function removeBatchesMulti(
+  ids: string[],
+): Promise<BatchRemoveMultiResponse> {
+  try {
+    const response = await axiosForBackend.delete<BatchRemoveMultiResponse>(
+      '/api/batches/batch',
+      { data: { ids, confirm: 'DELETE' } },
+    );
+    return response.data;
+  } catch (error) {
+    logger.error('批量删除批次失败', error);
+    throw error;
+  }
+}
+
 export async function revertBatchesMulti(
   ids: string[],
 ): Promise<BatchRevertMultiResponse> {

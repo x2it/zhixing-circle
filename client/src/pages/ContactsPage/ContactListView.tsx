@@ -165,6 +165,18 @@ const ContactListView: React.FC<ContactListViewProps> = ({
                   ) : (
                     '-'
                   )}
+                  {contact.secondPhone && (
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      <UniversalLink
+                        to={`tel:${contact.secondPhone}`}
+                        className="text-slate-400 hover:text-primary no-underline"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                      >
+                        {contact.secondPhone}
+                      </UniversalLink>
+                      <span className="ml-1">副号</span>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">

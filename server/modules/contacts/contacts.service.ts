@@ -86,6 +86,7 @@ export class ContactsService {
           ilike(contacts.name, searchTerm),
           ilike(contacts.nickname, searchTerm),
           ilike(contacts.phone, searchTerm),
+          ilike(contacts.secondPhone, searchTerm),
         ),
       );
     }
@@ -900,6 +901,57 @@ export class ContactsService {
   }
 
   /**
+   * 批量删除联系人（App 端 v2.7.0 起使用：DELETE /api/contacts + { ids }）。
+   *
+   * 契约要点：
+   * - 用户隔离：只删 userId 命中的记录，他人 id 一律不删（防越权）
+   * - 幂等：重复删同一批返回 deleted=0 且仍算成功，App 重试安全
+   * - 关联清理：跟进 / 标签关联 / 合并留痕与「删除批次」保持一致，不留孤儿数据
+   */
+  async batchDelete(ids: string[]): Promise<number> {
+    const userId = UserContext.getUserId();
+    return this.db.transaction(async (tx) => {
+      // 先按 userId 收敛出真正可删的 id，越权 id 在此被自然过滤掉
+      const owned = await tx
+        .select({ id: contacts.id, name: contacts.name })
+        .from(contacts)
+        .where(and(inArray(contacts.id, ids), eq(contacts.userId, userId)))
+        .limit(BATCH_LIMIT);
+
+      if (owned.length === 0) return 0;
+      const ownedIds = owned.map((r) => r.id);
+
+      // 关联清理：不依赖 DB 外键，保证任何部署环境行为一致
+      await tx.delete(followups).where(inArray(followups.contactId, ownedIds));
+      await tx.delete(contactTags).where(inArray(contactTags.contactId, ownedIds));
+      await tx.delete(mergeLogs).where(inArray(mergeLogs.keepContactId, ownedIds));
+
+      const deleted = await tx
+        .delete(contacts)
+        .where(and(inArray(contacts.id, ownedIds), eq(contacts.userId, userId)))
+        .returning({ id: contacts.id });
+
+      // 审计留痕：批量操作尤其需要可追溯
+      try {
+        await tx.insert(operationLogs).values({
+          userId,
+          action: 'contact_delete_batch',
+          channel: 'api',
+          summary: {
+            requested: ids.length,
+            deleted: deleted.length,
+            deletedNames: owned.slice(0, 20).map((r) => r.name),
+          },
+        });
+      } catch {
+        // 审计失败不影响删除主流程
+      }
+
+      return deleted.length;
+    });
+  }
+
+  /**
    * 分层快捷修改：只改 tier，不影响其它字段（App 端列表长按改分层用）。
    * 非法值（含 App 本地的 U）按既定策略归一为 D，不返回 400，避免脏数据阻塞同步。
    */
@@ -1302,7 +1354,7 @@ export class ContactsService {
     if (filter.keyword?.trim()) {
       const kw = `%${filter.keyword.trim()}%`;
       conditions.push(
-        sql`(${contacts.name} ILIKE ${kw} OR COALESCE(${contacts.nickname}, '') ILIKE ${kw} OR COALESCE(${contacts.phone}, '') ILIKE ${kw})`,
+        sql`(${contacts.name} ILIKE ${kw} OR COALESCE(${contacts.nickname}, '') ILIKE ${kw} OR COALESCE(${contacts.phone}, '') ILIKE ${kw} OR COALESCE(${contacts.secondPhone}, '') ILIKE ${kw})`,
       );
     }
     return conditions;

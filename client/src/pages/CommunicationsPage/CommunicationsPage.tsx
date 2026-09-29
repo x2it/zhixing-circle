@@ -55,6 +55,27 @@ const PageSizeSelector: React.FC<{
   </label>
 );
 
+/** 通话时长档位 → 秒区间；null 表示不限 */
+const DURATION_PRESETS: Array<{ value: string; label: string; min?: number; max?: number }> = [
+  { value: '', label: '全部时长' },
+  { value: 'missed', label: '未接通（0 秒）', min: 0, max: 0 },
+  { value: 'short', label: '30 秒内', min: 1, max: 30 },
+  { value: 'medium', label: '30 秒 ~ 5 分钟', min: 30, max: 300 },
+  { value: 'long', label: '5 分钟以上', min: 300 },
+];
+
+const SORT_OPTIONS_CALL = [
+  { value: 'date-desc', label: '时间：最新优先' },
+  { value: 'date-asc', label: '时间：最早优先' },
+  { value: 'duration-desc', label: '时长：最长优先' },
+  { value: 'duration-asc', label: '时长：最短优先' },
+];
+
+const SORT_OPTIONS_SMS = [
+  { value: 'date-desc', label: '时间：最新优先' },
+  { value: 'date-asc', label: '时间：最早优先' },
+];
+
 const formatTime = (iso?: string | null): string => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -141,12 +162,16 @@ const CommunicationsPage: React.FC = () => {
   const [direction, setDirection] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  /** 通话时长档位（见 DURATION_PRESETS），空串=不限 */
+  const [durationRange, setDurationRange] = useState('');
+  /** 排序键：`<sortBy>-<sortOrder>`，默认 date-desc */
+  const [sortKey, setSortKey] = useState('date-desc');
 
   // 多选删除
   const [smsSel, setSmsSel] = useState<Set<string>>(new Set());
   const [callSel, setCallSel] = useState<Set<string>>(new Set());
 
-  const hasFilter = !!(keyword || direction || dateFrom || dateTo);
+  const hasFilter = !!(keyword || direction || dateFrom || dateTo || durationRange || sortKey !== 'date-desc');
 
   const loadStatus = useCallback(async () => {
     try {
@@ -189,6 +214,7 @@ const CommunicationsPage: React.FC = () => {
         direction: direction || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        sortOrder: sortKey === 'date-asc' ? 'asc' : undefined,
       });
       setThread(res.items);
       setThreadTotal(res.total);
@@ -197,7 +223,7 @@ const CommunicationsPage: React.FC = () => {
     } finally {
       setThreadLoading(false);
     }
-  }, [activePhone, threadPage, threadPageSize, keyword, direction, dateFrom, dateTo]);
+  }, [activePhone, threadPage, threadPageSize, keyword, direction, dateFrom, dateTo, sortKey]);
 
   /** 全局内容搜索：按关键词直接命中短信原文（跨会话） */
   const loadSmsHits = useCallback(async () => {
@@ -215,6 +241,7 @@ const CommunicationsPage: React.FC = () => {
         direction: direction || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        sortOrder: sortKey === 'date-asc' ? 'asc' : undefined,
       });
       setSmsHits(res.items);
       setSmsHitsTotal(res.total);
@@ -229,11 +256,13 @@ const CommunicationsPage: React.FC = () => {
     } finally {
       setSmsHitsLoading(false);
     }
-  }, [keyword, direction, dateFrom, dateTo, smsHitsPage]);
+  }, [keyword, direction, dateFrom, dateTo, smsHitsPage, sortKey]);
 
   const loadCalls = useCallback(async () => {
     setCallLoading(true);
     try {
+      const preset = DURATION_PRESETS.find((p) => p.value === durationRange);
+      const [sortBy, sortOrder] = sortKey.split('-');
       const res = await getCalls({
         page: callPage,
         pageSize: callPageSize,
@@ -241,6 +270,10 @@ const CommunicationsPage: React.FC = () => {
         direction: direction || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        minDuration: preset?.min,
+        maxDuration: preset?.max,
+        sortBy: sortBy || undefined,
+        sortOrder: sortOrder || undefined,
       });
       setCalls(res.items);
       setCallTotal(res.total);
@@ -257,7 +290,7 @@ const CommunicationsPage: React.FC = () => {
     } finally {
       setCallLoading(false);
     }
-  }, [callPage, callPageSize, keyword, direction, dateFrom, dateTo]);
+  }, [callPage, callPageSize, keyword, direction, dateFrom, dateTo, durationRange, sortKey]);
 
   useEffect(() => {
     void loadStatus();
@@ -305,6 +338,8 @@ const CommunicationsPage: React.FC = () => {
     setDirection('');
     setDateFrom('');
     setDateTo('');
+    setDurationRange('');
+    setSortKey('date-desc');
     setConvPage(1);
     setThreadPage(1);
     setCallPage(1);
@@ -512,6 +547,36 @@ const CommunicationsPage: React.FC = () => {
               className="h-8 rounded-md border border-input bg-background px-1.5 text-xs text-foreground"
             />
           </label>
+          {/* 通话专属：时长档位 */}
+          {tab === 'call' && (
+            <select
+              value={durationRange}
+              onChange={(e) => {
+                setDurationRange(e.target.value);
+                setCallPage(1);
+              }}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              aria-label="通话时长筛选"
+            >
+              {DURATION_PRESETS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          )}
+          {/* 排序：通话支持按时长，短信只按时间 */}
+          <select
+            value={sortKey}
+            onChange={(e) => {
+              setSortKey(e.target.value);
+              setConvPage(1); setThreadPage(1); setCallPage(1); setSmsHitsPage(1);
+            }}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+            aria-label="排序方式"
+          >
+            {(tab === 'call' ? SORT_OPTIONS_CALL : SORT_OPTIONS_SMS).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
           {hasFilter && (
             <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={clearFilters}>
               <X className="w-3.5 h-3.5" />

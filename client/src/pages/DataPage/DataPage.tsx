@@ -69,6 +69,7 @@ import GovernancePanel from './GovernancePanel';
 import SyncHealthCard from './SyncHealthCard';
 import * as batchesApi from '@client/src/api/batches';
 import BatchMultiRevertDialog from './BatchMultiRevertDialog';
+import BatchMultiDeleteDialog from './BatchMultiDeleteDialog';
 import type {
   ExportData,
   ImportBatch,
@@ -84,6 +85,7 @@ type ExportScope = 'all' | 'batch';
 const XLSX_TARGET_FIELDS: Array<{ value: string; label: string }> = [
   { value: 'name', label: '姓名' },
   { value: 'phone', label: '手机号' },
+  { value: 'secondPhone', label: '副号' },
   { value: 'wechat', label: '微信' },
   { value: 'source', label: '来源' },
   { value: 'area', label: '意向区域' },
@@ -100,6 +102,7 @@ function suggestTarget(column: string): string {
   const s = column.toLowerCase().trim();
   const map: Array<{ keys: string[]; target: string }> = [
     { keys: ['姓名', '名字', 'name', '客户名'], target: 'name' },
+    { keys: ['副号', 'secondphone', '备用号', '备用电话', '号码2', '第二号码', '第二个号码'], target: 'secondPhone' },
     { keys: ['手机', '电话', 'phone', 'mobile', 'tel', '联系电话'], target: 'phone' },
     { keys: ['微信', 'wechat', 'wx', '微信号'], target: 'wechat' },
     { keys: ['来源', 'source', '渠道', '获客'], target: 'source' },
@@ -166,6 +169,7 @@ const DataPage: React.FC = () => {
   const [reverting, setReverting] = useState<boolean>(false);
   // 时光机批量回滚（多选/全选）
   const [multiRevertOpen, setMultiRevertOpen] = useState<boolean>(false);
+  const [multiDeleteOpen, setMultiDeleteOpen] = useState<boolean>(false);
 
   // Merge logs
   const [mergeLogs, setMergeLogs] = useState<MergeLog[]>([]);
@@ -321,6 +325,7 @@ const DataPage: React.FC = () => {
         const rows = contacts.map((c) => ({
           姓名: c.name || '',
           手机号: c.phone || '',
+          副号: c.secondPhone || '',
           微信: c.wechat || '',
           层级: c.tier || '',
           备忘: c.memo || '',
@@ -701,6 +706,15 @@ const DataPage: React.FC = () => {
                 onClick={() => setMultiRevertOpen(true)}
               >
                 批量回滚…
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                disabled={batches.length === 0}
+                onClick={() => setMultiDeleteOpen(true)}
+              >
+                批量删除…
               </Button>
             </div>
             {batchesLoading ? (
@@ -1279,6 +1293,12 @@ const DataPage: React.FC = () => {
         <BatchMultiRevertDialog
           open={multiRevertOpen}
           onOpenChange={setMultiRevertOpen}
+          batches={batches}
+          onDone={() => { void loadBatches(); }}
+        />
+        <BatchMultiDeleteDialog
+          open={multiDeleteOpen}
+          onOpenChange={setMultiDeleteOpen}
           batches={batches}
           onDone={() => { void loadBatches(); }}
         />

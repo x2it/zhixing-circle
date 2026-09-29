@@ -174,6 +174,18 @@ const ContactDetailDrawer: React.FC<ContactDetailDrawerProps> = ({
                     </UniversalLink>
                   </div>
                 )}
+                {contact.secondPhone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <UniversalLink
+                      to={`tel:${contact.secondPhone}`}
+                      className="text-slate-600 hover:text-primary no-underline"
+                    >
+                      {contact.secondPhone}
+                    </UniversalLink>
+                    <span className="text-xs text-slate-400">副号</span>
+                  </div>
+                )}
                 {contact.wechat && (
                   <div className="flex items-center gap-2 text-slate-600">
                     <MessageSquare className="w-4 h-4 text-slate-400 flex-shrink-0" />

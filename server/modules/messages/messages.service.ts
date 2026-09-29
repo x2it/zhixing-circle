@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@lark-apaas/fullstack-nestjs-core';
 import { messages, systemSettings, contacts, operationLogs } from '@server/database/schema';
-import { eq, desc, count, and, inArray, sql, gte, lte } from 'drizzle-orm';
+import { eq, asc, desc, count, and, inArray, sql, gte, lte } from 'drizzle-orm';
 import { buildContactNameMaps, resolveContactName } from '@server/common/contact-name';
 import {
   normalizePhone,
@@ -92,6 +92,8 @@ export class MessagesService {
     dateTo?: string;
     /** 只看呼入 / 呼出 */
     direction?: string;
+    /** 排序方向：desc=倒序（默认） asc=正序（按时间先后） */
+    sortOrder?: string;
   }): Promise<MessageListResponse> {
     await this.assertSyncEnabled();
     const userId = UserContext.getUserId();
@@ -136,7 +138,11 @@ export class MessagesService {
       .select()
       .from(messages)
       .where(whereClause)
-      .orderBy(desc(messages.messageDate), desc(messages.createdAt))
+      .orderBy(
+        ...(query.sortOrder === 'asc'
+          ? [asc(messages.messageDate), asc(messages.createdAt)]
+          : [desc(messages.messageDate), desc(messages.createdAt)]),
+      )
       .limit(pageSize)
       .offset(offset);
 

@@ -26,6 +26,8 @@ export async function getMessages(params: {
   dateTo?: string;
   /** in=收到 out=发出 */
   direction?: string;
+  /** 排序方向：desc=倒序（默认） asc=正序（按时间先后） */
+  sortOrder?: string;
 } = {}): Promise<MessageListResponse> {
   try {
     const response = await axiosForBackend.get('/api/messages', { params });
@@ -92,6 +94,14 @@ export async function getCalls(params: {
   dateTo?: string;
   /** in=呼入 out=呼出 missed=未接 */
   direction?: string;
+  /** 通话时长下限（秒，含） */
+  minDuration?: number;
+  /** 通话时长上限（秒，含） */
+  maxDuration?: number;
+  /** 排序字段：date=通话时间（默认） duration=通话时长 */
+  sortBy?: string;
+  /** 排序方向：desc=倒序（默认） asc=正序 */
+  sortOrder?: string;
 } = {}): Promise<CallListResponse> {
   try {
     const response = await axiosForBackend.get('/api/calls', { params });

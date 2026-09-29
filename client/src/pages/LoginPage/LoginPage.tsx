@@ -107,7 +107,7 @@ const LoginPage: React.FC = () => {
             </div>
             <h1 className="text-2xl font-semibold text-slate-900">知行朋友圈</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {mode === 'login' ? '知人，知行' : '使用恢复码重置登录密码'}
+              {mode === 'login' ? '让每一段人脉关系，都被认真对待' : '使用恢复码重置登录密码'}
             </p>
           </div>
 

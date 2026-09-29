@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@lark-apaas/fullstack-nestjs-core';
 import { calls, systemSettings, contacts, operationLogs } from '@server/database/schema';
-import { eq, desc, count, and, inArray, sql, gte, lte } from 'drizzle-orm';
+import { eq, asc, desc, count, and, inArray, sql, gte, lte, type SQL } from 'drizzle-orm';
 import { buildContactNameMaps, resolveContactName } from '@server/common/contact-name';
 import {
   normalizePhone,
@@ -87,6 +87,14 @@ export class CallsService {
     dateTo?: string;
     /** in=呼入 out=呼出 missed=未接 */
     direction?: string;
+    /** 通话时长下限（秒，含） */
+    minDuration?: number;
+    /** 通话时长上限（秒，含） */
+    maxDuration?: number;
+    /** 排序字段：date=通话时间（默认） duration=通话时长 */
+    sortBy?: string;
+    /** 排序方向：desc=倒序（默认） asc=正序 */
+    sortOrder?: string;
   }): Promise<CallListResponse> {
     await this.assertSyncEnabled();
     const userId = UserContext.getUserId();
@@ -100,6 +108,13 @@ export class CallsService {
     if (query.contactId) conditions.push(eq(calls.contactId, query.contactId));
     if (query.phone) conditions.push(eq(calls.phone, query.phone));
     if (query.direction) conditions.push(eq(calls.direction, query.direction));
+    // 时长区间（秒）：只接受有限数值，非法值忽略而不是报错，避免筛选器抖动导致整页 400
+    if (typeof query.minDuration === 'number' && Number.isFinite(query.minDuration)) {
+      conditions.push(gte(calls.duration, Math.max(0, Math.trunc(query.minDuration))));
+    }
+    if (typeof query.maxDuration === 'number' && Number.isFinite(query.maxDuration)) {
+      conditions.push(lte(calls.duration, Math.max(0, Math.trunc(query.maxDuration))));
+    }
     if (query.dateFrom) conditions.push(gte(calls.callDate, query.dateFrom));
     // 字典序比较：补当天末尾，避免「至某日」漏掉当天记录
     if (query.dateTo) conditions.push(lte(calls.callDate, `${query.dateTo} 23:59:59`));
@@ -130,11 +145,22 @@ export class CallsService {
       .from(calls)
       .where(whereClause);
 
+    // 排序：默认按通话时间倒序；支持按时长排，且始终以时间为次要键保证结果稳定
+    const isAsc = query.sortOrder === 'asc';
+    const orderExpr: SQL[] =
+      query.sortBy === 'duration'
+        ? isAsc
+          ? [asc(calls.duration), desc(calls.callDate)]
+          : [desc(calls.duration), desc(calls.callDate)]
+        : isAsc
+          ? [asc(calls.callDate), asc(calls.createdAt)]
+          : [desc(calls.callDate), desc(calls.createdAt)];
+
     const rows = await this.db
       .select()
       .from(calls)
       .where(whereClause)
-      .orderBy(desc(calls.callDate), desc(calls.createdAt))
+      .orderBy(...orderExpr)
       .limit(pageSize)
       .offset(offset);
 

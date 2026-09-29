@@ -47,6 +47,7 @@ export class MessagesController {
     dateFrom?: string;
     dateTo?: string;
     direction?: string;
+    sortOrder?: string;
   }): Promise<MessageListResponse> {
     return this.messagesService.findAll({
       page: query.page ? Number(query.page) : undefined,
@@ -57,6 +58,7 @@ export class MessagesController {
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
       direction: query.direction,
+      sortOrder: query.sortOrder,
     });
   }
 
