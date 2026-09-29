@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DRIZZLE_DATABASE, type PostgresJsDatabase } from '@lark-apaas/fullstack-nestjs-core';
-import { systemSettings, tags } from '@server/database/schema';
+import { systemSettings, tags, operationLogs } from '@server/database/schema';
 import { eq, like, asc, and, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { UserContext } from '@server/common/context/user-context';
@@ -12,6 +12,7 @@ import type {
   ResetAllTemplatesRequest,
   ApplyTemplateResponse,
   TemplateApplyReport,
+  AlignTagsResponse,
   TemplateTier,
   TemplateTag,
   NicknameFormatConfig,
@@ -771,6 +772,112 @@ export class TemplatesService {
     });
 
     return { ...template, isActive: true, applyReport: report };
+  }
+
+  /**
+   * 一键对齐：把标签库与当前激活模板对齐，保证「模板方案 = 标签体系」：
+   * 1) 补齐：模板定义但库中缺失的标签（按模板的类目/颜色/排序入库）
+   * 2) 转正/归位：sync 隔离区或类目放错的同名标签，修正为模板类目
+   * 3) 隔离：模板之外的身份/属性标签降级到 sync（不物理删除，随时可找回）
+   */
+  async alignTags(): Promise<AlignTagsResponse> {
+    const ownerId = UserContext.getUserId();
+    const activeId = await this.readActiveId();
+    if (!activeId) {
+      throw new BadRequestException('尚未应用任何模板，请先在模板页选择方案');
+    }
+    const template = await this.findOne(activeId);
+
+    // 模板名单：name -> 标签元数据（类目/颜色/排序）
+    const templateByName = new Map<string, TemplateTag & { category: 'identity' | 'attribute' }>();
+    template.identityTags.forEach((t) => templateByName.set(t.name, { ...t, category: 'identity' }));
+    template.attributeTags.forEach((t) => templateByName.set(t.name, { ...t, category: 'attribute' }));
+
+    const report: AlignTagsResponse = {
+      templateId: template.id,
+      templateName: template.name,
+      createdIdentity: [],
+      createdAttribute: [],
+      promotedSync: [],
+      demoted: [],
+      totals: { identity: 0, attribute: 0, sync: 0 },
+    };
+
+    await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ id: tags.id, name: tags.name, category: tags.category })
+        .from(tags)
+        .where(eq(tags.userId, ownerId));
+      const byName = new Map<string, { id: string; category: string | null }>();
+      rows.forEach((r) => byName.set(r.name, { id: r.id, category: r.category }));
+
+      // 1+2) 模板名单内：缺失则建，类目不符则修正（含 sync 转正）
+      for (const [name, meta] of templateByName.entries()) {
+        const existing = byName.get(name);
+        if (!existing) {
+          const [row] = await tx
+            .insert(tags)
+            .values({
+              userId: ownerId,
+              name,
+              category: meta.category,
+              color: meta.color ?? '#64748b',
+              sortOrder: meta.sortOrder,
+            })
+            .returning({ id: tags.id });
+          byName.set(name, { id: row.id, category: meta.category });
+          (meta.category === 'identity' ? report.createdIdentity : report.createdAttribute).push(name);
+        } else if (existing.category !== meta.category) {
+          await tx
+            .update(tags)
+            .set({ category: meta.category, color: meta.color ?? '#64748b', sortOrder: meta.sortOrder })
+            .where(eq(tags.id, existing.id));
+          if (existing.category === 'sync') report.promotedSync.push(name);
+        }
+      }
+
+      // 3) 模板名单外的 identity/attribute 标签 → 降级到 sync 隔离区（保留数据，不物理删除）
+      for (const r of rows) {
+        if ((r.category === 'identity' || r.category === 'attribute') && !templateByName.has(r.name)) {
+          await tx
+            .update(tags)
+            .set({ category: 'sync', color: '#94a3b8', sortOrder: 100 })
+            .where(eq(tags.id, r.id));
+          report.demoted.push(r.name);
+        }
+      }
+
+      // 对齐后各类目数量
+      const after = await tx
+        .select({ category: tags.category })
+        .from(tags)
+        .where(eq(tags.userId, ownerId));
+      report.totals = {
+        identity: after.filter((x) => x.category === 'identity').length,
+        attribute: after.filter((x) => x.category === 'attribute').length,
+        sync: after.filter((x) => x.category === 'sync').length,
+      };
+
+      // 数据治理动作必须留痕
+      try {
+        await tx.insert(operationLogs).values({
+          userId: ownerId,
+          action: 'template_align_tags',
+          channel: 'web',
+          summary: {
+            templateId: template.id,
+            templateName: template.name,
+            created: report.createdIdentity.length + report.createdAttribute.length,
+            promoted: report.promotedSync.length,
+            demoted: report.demoted.length,
+          },
+        });
+      } catch {
+        // 审计失败不影响主流程
+      }
+    });
+
+    return report;
   }
 
   /**

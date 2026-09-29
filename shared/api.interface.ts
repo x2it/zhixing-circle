@@ -1265,6 +1265,21 @@ export interface TemplateApplyReport {
   skippedAttributeTags: string[];
 }
 
+/** POST /api/templates/align-tags 响应：标签库与激活模板对齐的报告 */
+export interface AlignTagsResponse {
+  templateId: string;
+  templateName: string;
+  /** 本次新建的模板标签（库中此前缺失） */
+  createdIdentity: string[];
+  createdAttribute: string[];
+  /** 从 sync 隔离区转正的标签（与模板同名） */
+  promotedSync: string[];
+  /** 降级到 sync 隔离区的标签（模板之外的身份/属性标签，未物理删除，可找回） */
+  demoted: string[];
+  /** 对齐后各类目数量 */
+  totals: { identity: number; attribute: number; sync: number };
+}
+
 export interface TemplateListResponse {
   items: ContactTemplate[];
 }

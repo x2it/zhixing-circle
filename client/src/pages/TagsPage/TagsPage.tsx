@@ -51,8 +51,9 @@ import {
   updateTag,
   deleteTag,
 } from '@client/src/api/tags';
+import { getActiveTemplate, alignTagsToTemplate } from '@client/src/api/templates';
 import { getContacts } from '@client/src/api/contacts';
-import type { Tag, TagCategory, CreateTagRequest, Contact } from '@shared/api.interface';
+import type { Tag, TagCategory, CreateTagRequest, Contact, ContactTemplate, AlignTagsResponse } from '@shared/api.interface';
 
 const CATEGORY_LABELS: Record<TagCategory, string> = {
   identity: '身份类标签',
@@ -90,16 +91,22 @@ const TagsPage: React.FC = () => {
     color: '#dc2626',
     sortOrder: 0,
   });
+  const [activeTemplate, setActiveTemplate] = useState<ContactTemplate | null>(null);
+  const [aligning, setAligning] = useState<boolean>(false);
+  const [alignConfirmOpen, setAlignConfirmOpen] = useState<boolean>(false);
+  const [alignReport, setAlignReport] = useState<AlignTagsResponse | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tagsData, contactsRes] = await Promise.all([
+      const [tagsData, contactsRes, activeTpl] = await Promise.all([
         getTags(),
         getContacts({ pageSize: 1000, page: 1 }),
+        getActiveTemplate().catch(() => null),
       ]);
       setTags(tagsData);
       setContacts(contactsRes.items || []);
+      setActiveTemplate(activeTpl);
     } catch (error) {
       logger.error('加载数据失败', error);
       const msg = error && typeof error === 'object' && 'message' in error
@@ -188,6 +195,24 @@ const TagsPage: React.FC = () => {
     }
   };
 
+  const handleAlign = async () => {
+    setAligning(true);
+    try {
+      const report = await alignTagsToTemplate();
+      setAlignConfirmOpen(false);
+      setAlignReport(report);
+      await loadData();
+    } catch (error) {
+      logger.error('对齐标签失败', error);
+      const msg = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : '未知错误';
+      toast.error(`对齐失败：${msg}`);
+    } finally {
+      setAligning(false);
+    }
+  };
+
   if (loading && tags.length === 0) {
     return (
       <div className="space-y-6 p-6">
@@ -204,21 +229,35 @@ const TagsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* 页面标题 + 新增按钮 */}
+      {/* 页面标题 + 对齐模板 + 新增按钮 */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">标签管理</h2>
           <p className="text-sm text-slate-600 mt-1">
-            按分组管理联系人标签
+            {activeTemplate
+              ? `当前方案「${activeTemplate.name}」· ${activeTemplate.identityTags?.length ?? 0} 身份 + ${activeTemplate.attributeTags?.length ?? 0} 属性标签`
+              : '按分组管理联系人标签'}
           </p>
         </div>
-        <Button
-          className="bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
-           onClick={() => handleOpenAdd('identity')}
-        >
-          <Plus className="w-4 h-4" />
-          新增标签
-        </Button>
+        <div className="flex items-center gap-2">
+          {activeTemplate && (
+            <Button
+              variant="outline"
+              onClick={() => setAlignConfirmOpen(true)}
+              disabled={aligning}
+            >
+              <TagIcon className="w-4 h-4" />
+              {aligning ? '对齐中...' : '对齐模板'}
+            </Button>
+          )}
+          <Button
+            className="bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
+            onClick={() => handleOpenAdd('identity')}
+          >
+            <Plus className="w-4 h-4" />
+            新增标签
+          </Button>
+        </div>
       </div>
 
       {/* 分类卡片 */}
@@ -414,6 +453,75 @@ const TagsPage: React.FC = () => {
             >
               {editingTag ? '保存修改' : '创建标签'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 对齐模板确认弹窗 */}
+      <AlertDialog open={alignConfirmOpen} onOpenChange={setAlignConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>对齐标签到「{activeTemplate?.name}」</AlertDialogTitle>
+            <AlertDialogDescription>
+              将把标签库与当前模板方案对齐：
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
+            <li>补齐模板定义但缺失的标签（{activeTemplate?.identityTags?.length ?? 0} 身份 + {activeTemplate?.attributeTags?.length ?? 0} 属性）</li>
+            <li>同步产生的同名标签自动转正</li>
+            <li>模板之外的身份/属性标签移入「同步隔离区」，不会删除，可随时找回</li>
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={aligning}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                handleAlign();
+              }}
+            >
+              {aligning ? '对齐中...' : '立即对齐'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 对齐结果弹窗 */}
+      <Dialog open={!!alignReport} onOpenChange={(open: boolean) => !open && setAlignReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>对齐完成</DialogTitle>
+            <DialogDescription>
+              标签库已与「{alignReport?.templateName}」对齐
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-600">新建标签</span>
+              <span className="font-medium">
+                {(alignReport?.createdIdentity.length ?? 0) + (alignReport?.createdAttribute.length ?? 0)} 个
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">同步标签转正</span>
+              <span className="font-medium">{alignReport?.promotedSync.length ?? 0} 个</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">移入隔离区</span>
+              <span className="font-medium">{alignReport?.demoted.length ?? 0} 个</span>
+            </div>
+            {(alignReport?.demoted.length ?? 0) > 0 && (
+              <div className="text-xs text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
+                隔离名单：{alignReport?.demoted.join('、')}
+              </div>
+            )}
+            <div className="text-xs text-slate-400 pt-1">
+              当前：身份 {alignReport?.totals.identity ?? 0} · 属性 {alignReport?.totals.attribute ?? 0} · 同步隔离 {alignReport?.totals.sync ?? 0}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setAlignReport(null)}>好的</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

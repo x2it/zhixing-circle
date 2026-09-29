@@ -419,9 +419,11 @@ export class ContactsService {
     for (const name of cleaned) {
       let id = byName.get(name);
       if (!id) {
+        // 自动创建 = 模板名单之外的名字（官方标签已由模板应用时入库，同名会直接复用），
+        // 归入 sync 隔离类目，不污染模板定义的 identity/attribute 正式标签体系
         const [row] = await tx
           .insert(tags)
-          .values({ userId, name, category: 'identity', color: '#3b82f6', sortOrder: 0 })
+          .values({ userId, name, category: 'sync', color: '#94a3b8', sortOrder: 100 })
           .returning({ id: tags.id });
         id = row.id;
         byName.set(name, id);

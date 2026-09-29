@@ -1,6 +1,6 @@
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
 import { logger } from '@lark-apaas/client-toolkit/logger';
-import type { ContactTemplate, CreateTemplateRequest } from '@shared/api.interface';
+import type { ContactTemplate, CreateTemplateRequest, AlignTagsResponse } from '@shared/api.interface';
 
 export async function getTemplates(): Promise<ContactTemplate[]> {
   const response = await axiosForBackend.get('/api/templates');
@@ -71,4 +71,10 @@ export async function getActiveTemplate(): Promise<ContactTemplate | null> {
     logger.error('获取当前使用模板失败', error);
     throw error;
   }
+}
+
+/** 一键对齐：把标签库与当前激活模板对齐（补缺失、sync 转正、模板外降级隔离） */
+export async function alignTagsToTemplate(): Promise<AlignTagsResponse> {
+  const response = await axiosForBackend.post('/api/templates/align-tags');
+  return response.data;
 }

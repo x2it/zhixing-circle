@@ -8,6 +8,7 @@ import type {
   DuplicateTemplateRequest,
   ResetAllTemplatesRequest,
   ApplyTemplateResponse,
+  AlignTagsResponse,
 } from '@shared/api.interface';
 
 @Controller('api/templates')
@@ -44,6 +45,12 @@ export class TemplatesController {
   @Post('reset-all')
   async resetAll(@Body() dto: ResetAllTemplatesRequest): Promise<{ removedTemplates: number }> {
     return this.templatesService.resetAll(dto);
+  }
+
+  /** 一键对齐：标签库与当前激活模板对齐（补缺失、sync 转正、模板外降级隔离） */
+  @Post('align-tags')
+  async alignTags(): Promise<AlignTagsResponse> {
+    return this.templatesService.alignTags();
   }
 
   /** 另存为新方案：预设或自定义均可复制为当前用户的新自定义方案 */

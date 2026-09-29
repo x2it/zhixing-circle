@@ -700,6 +700,11 @@ GET  /api/batches/operations/logs    操作流水（审计每一次操作）
 应用模板到当前账号（写入该模板的分层与标签体系），并把该模板标记为「当前使用」。
 返回应用后的模板对象（\`isActive: true\`）。应用后其他模板的 \`isActive\` 自动变回 false。
 
+#### POST /api/templates/align-tags
+一键对齐：把标签库与当前激活模板对齐，保证「模板方案 = 标签体系」。三个动作：
+1) 补齐模板定义但缺失的标签；2) 同步产生的同名标签转正；3) 模板之外的身份/属性标签降级到 sync 隔离区（不物理删除）。
+返回对齐报告：\`{ templateId, templateName, createdIdentity[], createdAttribute[], promotedSync[], demoted[], totals{identity,attribute,sync} }\`。
+
 ### 9. 数据质量与智能分层建议
 
 #### GET /api/data/quality
