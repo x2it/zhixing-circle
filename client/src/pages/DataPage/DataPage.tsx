@@ -68,8 +68,7 @@ import type { MergeLog } from '@shared/api.interface';
 import GovernancePanel from './GovernancePanel';
 import SyncHealthCard from './SyncHealthCard';
 import * as batchesApi from '@client/src/api/batches';
-import BatchMultiRevertDialog from './BatchMultiRevertDialog';
-import BatchMultiDeleteDialog from './BatchMultiDeleteDialog';
+import BatchConfirmDialog, { type BatchAction } from './BatchConfirmDialog';
 import type {
   ExportData,
   ImportBatch,
@@ -158,18 +157,10 @@ const DataPage: React.FC = () => {
   // Batches
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState<boolean>(false);
-  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-  const [batchToDelete, setBatchToDelete] = useState<ImportBatch | null>(null);
-  // 时光机（回滚）
-  const [revertDialogOpen, setRevertDialogOpen] = useState<boolean>(false);
-  const [batchToRevert, setBatchToRevert] = useState<ImportBatch | null>(null);
-  const [revertDiff, setRevertDiff] = useState<BatchDiffResponse | null>(null);
-  const [revertLoading, setRevertLoading] = useState<boolean>(false);
-  const [reverting, setReverting] = useState<boolean>(false);
-  // 时光机批量回滚（多选/全选）
-  const [multiRevertOpen, setMultiRevertOpen] = useState<boolean>(false);
-  const [multiDeleteOpen, setMultiDeleteOpen] = useState<boolean>(false);
+  // 时光机统一批量操作：勾选批次 → 操作条 → 一个确认弹窗（回滚/删除）
+  const [batchPicked, setBatchPicked] = useState<Set<string>>(new Set());
+  const [batchAction, setBatchAction] = useState<BatchAction | null>(null);
+  const [batchRunning, setBatchRunning] = useState<boolean>(false);
 
   // Merge logs
   const [mergeLogs, setMergeLogs] = useState<MergeLog[]>([]);
@@ -209,76 +200,68 @@ const DataPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBatch = (batch: ImportBatch): void => {
-    setBatchToDelete(batch);
-    setDeleteDialogOpen(true);
+  /** 勾选/取消勾选一个批次 */
+  const toggleBatchPick = (id: string): void => {
+    setBatchPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
-  /** 回滚：先拉预览，让用户看到会发生什么 */
-  const handleRevertBatch = async (batch: ImportBatch): Promise<void> => {
-    try {
-      setRevertLoading(true);
-      const diff = await batchesApi.getBatchDiff(batch.id);
-      setRevertDiff(diff);
-      setBatchToRevert(batch);
-      setRevertDialogOpen(true);
-    } catch (error) {
-      logger.error('获取回滚预览失败', error);
-      const msg = error && typeof error === 'object' && 'message' in error
-        ? String((error as { message: unknown }).message)
-        : '未知错误';
-      toast.error(`无法获取回滚预览：${msg}`);
-    } finally {
-      setRevertLoading(false);
-    }
+  /** 打开统一确认弹窗（回滚 / 删除） */
+  const openBatchConfirm = (action: BatchAction): void => {
+    if (batchPicked.size === 0) return;
+    setBatchAction(action);
   };
 
-  const confirmRevertBatch = async (): Promise<void> => {
-    if (!batchToRevert) return;
-    setReverting(true);
+  /** 统一执行：单条与批量走同一接口（单条 = 只勾 1 条） */
+  const runBatchAction = async (): Promise<void> => {
+    if (!batchAction || batchPicked.size === 0 || batchRunning) return;
+    setBatchRunning(true);
+    const ids = [...batchPicked];
     try {
-      const result = await batchesApi.revertBatch(batchToRevert.id);
-      toast.success(
-        `已回滚「${batchToRevert.name}」：删除 ${result.deleted} 条，保留 ${result.kept} 条`
-      );
+      if (batchAction === 'revert') {
+        const res = await batchesApi.revertBatchesMulti(ids);
+        const failed = res.results.filter(r => !r.success);
+        if (failed.length === 0) {
+          toast.success(
+            `已回滚 ${res.results.length} 个批次：清除 ${res.totalDeleted} 个联系人，保留 ${res.totalKept} 个已被修改的`,
+          );
+        } else {
+          toast.warning(
+            `回滚完成：成功 ${res.results.length - failed.length} 个（清除 ${res.totalDeleted} 人），失败 ${failed.length} 个（${failed[0]?.error ?? '未知原因'}）`,
+          );
+        }
+      } else {
+        const res = await batchesApi.removeBatchesMulti(ids);
+        const failed = res.results.filter(r => !r.success);
+        if (failed.length === 0) {
+          toast.success(`已彻底删除 ${res.results.length} 个批次，清除 ${res.totalDeletedContacts} 个联系人`);
+        } else {
+          toast.warning(
+            `删除完成：成功 ${res.results.length - failed.length} 个（清除 ${res.totalDeletedContacts} 人），失败 ${failed.length} 个（${failed[0]?.error ?? '未知原因'}）`,
+          );
+        }
+      }
+      setBatchPicked(new Set());
+      setBatchAction(null);
       await loadBatches();
-      setRevertDialogOpen(false);
-      setBatchToRevert(null);
-      setRevertDiff(null);
     } catch (error) {
-      logger.error('回滚批次失败', error);
+      logger.error('批次操作失败', error);
       const msg = error && typeof error === 'object' && 'message' in error
         ? String((error as { message: unknown }).message)
         : '未知错误';
-      toast.error(`回滚失败：${msg}`);
+      toast.error(`操作失败：${msg}`);
     } finally {
-      setReverting(false);
+      setBatchRunning(false);
     }
   };
 
-  const confirmDeleteBatch = async (): Promise<void> => {
-    if (!batchToDelete) return;
-    setDeletingBatchId(batchToDelete.id);
-    try {
-      const result = await batchesApi.deleteBatch(batchToDelete.id);
-      toast.success(
-        `已删除批次 ${batchToDelete.name}，共删除 ${result.deletedContacts} 个联系人`
-      );
-      setBatches((prev: ImportBatch[]) =>
-        prev.filter((b: ImportBatch) => b.id !== batchToDelete.id)
-      );
-      setDeleteDialogOpen(false);
-      setBatchToDelete(null);
-    } catch (error) {
-      logger.error('删除批次失败', error);
-      const msg = error && typeof error === 'object' && 'message' in error
-        ? String((error as { message: unknown }).message)
-        : '未知错误';
-      toast.error(`删除批次失败：${msg}`);
-    } finally {
-      setDeletingBatchId(null);
-    }
-  };
+  /** 已选批次涉及的联系人总数（用于操作条与确认弹窗展示） */
+  const pickedContacts = batches
+    .filter((b: ImportBatch) => batchPicked.has(b.id))
+    .reduce((s: number, b: ImportBatch) => s + (b.contactCount ?? 0), 0);
 
   const triggerDownload = (content: BlobPart, filename: string, type: string) => {
     const blob = new Blob([content], { type });
@@ -697,25 +680,48 @@ const DataPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-400">共 {batches.length} 个批次</span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                disabled={batches.filter(b => b.status !== 'reverted').length === 0}
-                onClick={() => setMultiRevertOpen(true)}
-              >
-                批量回滚…
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                disabled={batches.length === 0}
-                onClick={() => setMultiDeleteOpen(true)}
-              >
-                批量删除…
-              </Button>
+              <span className="text-xs text-slate-400">
+                {batchPicked.size > 0
+                  ? `已选 ${batchPicked.size} / ${batches.length} 个批次 · 约 ${pickedContacts} 人`
+                  : `共 ${batches.length} 个批次 · 勾选批次后可批量回滚或删除`}
+              </span>
+              {batchPicked.size > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="text-xs text-slate-500 hover:text-slate-700 px-1"
+                    onClick={() => setBatchPicked(new Set(batches.map((b: ImportBatch) => b.id)))}
+                  >
+                    全选
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-amber-200 text-amber-700 hover:bg-amber-50"
+                    disabled={batchPicked.size === 0 || batchRunning}
+                    onClick={() => openBatchConfirm('revert')}
+                  >
+                    回滚
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                    disabled={batchPicked.size === 0 || batchRunning}
+                    onClick={() => openBatchConfirm('delete')}
+                  >
+                    彻底删除
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setBatchPicked(new Set())}
+                  >
+                    取消
+                  </Button>
+                </div>
+              ) : null}
             </div>
             {batchesLoading ? (
               <p className="text-sm text-slate-400 py-4 text-center">加载中...</p>
@@ -725,6 +731,7 @@ const DataPage: React.FC = () => {
               <div className="space-y-2">
                 {batches.map((batch: ImportBatch) => {
                   const isReverted = batch.status === 'reverted';
+                  const isPicked = batchPicked.has(batch.id);
                   const channelLabel: Record<string, string> = {
                     app_sync: 'App 同步',
                     excel_import: 'Excel 导入',
@@ -733,14 +740,23 @@ const DataPage: React.FC = () => {
                     seed: '示例数据',
                   };
                   return (
-                    <div
+                    <label
                       key={batch.id}
-                      className={`flex items-center justify-between py-2.5 px-3 rounded-md border transition-colors ${
-                        isReverted
-                          ? 'border-slate-200 bg-slate-50/70 opacity-70'
-                          : 'border-border hover:bg-slate-50/50'
+                      className={`flex items-center gap-3 py-2.5 px-3 rounded-md border transition-colors cursor-pointer ${
+                        isPicked
+                          ? 'border-amber-300 bg-amber-50/60'
+                          : isReverted
+                            ? 'border-slate-200 bg-slate-50/70 opacity-70 hover:bg-slate-50'
+                            : 'border-border hover:bg-slate-50/50'
                       }`}
                     >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-amber-600 flex-shrink-0"
+                        checked={isPicked}
+                        onChange={() => toggleBatchPick(batch.id)}
+                        aria-label={`选择批次 ${batch.name}`}
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-foreground truncate">
@@ -766,29 +782,12 @@ const DataPage: React.FC = () => {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {!isReverted && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50"
-                            onClick={() => handleRevertBatch(batch)}
-                            title="回滚该批次"
-                          >
-                            <Undo2 className="w-4 h-4" strokeWidth={1.5} />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-slate-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDeleteBatch(batch)}
-                          title="彻底删除该批次"
-                        >
-                          <Trash2 className="w-4 h-4" strokeWidth={1.5} />
-                        </Button>
-                      </div>
-                    </div>
+                      {isReverted && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 flex-shrink-0">
+                          可删除
+                        </span>
+                      )}
+                    </label>
                   );
                 })}
               </div>
@@ -1262,120 +1261,20 @@ const DataPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* 删除批次确认对话框 */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="w-5 h-5" strokeWidth={1.5} />
-                确认删除批次
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                确定要删除批次「{batchToDelete?.name}」吗？
-                该批次下的所有联系人将被<strong>永久删除</strong>，此操作不可恢复。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-red-600 hover:bg-red-700 text-white border-red-600"
-                onClick={() => void confirmDeleteBatch()}
-                disabled={deletingBatchId !== null}
-              >
-                {deletingBatchId !== null ? '删除中...' : '确认删除'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* 回滚批次确认对话框（时光机） */}
-                {/* 批量回滚弹窗（时光机多选/全选） */}
-        <BatchMultiRevertDialog
-          open={multiRevertOpen}
-          onOpenChange={setMultiRevertOpen}
-          batches={batches}
-          onDone={() => { void loadBatches(); }}
-        />
-        <BatchMultiDeleteDialog
-          open={multiDeleteOpen}
-          onOpenChange={setMultiDeleteOpen}
-          batches={batches}
-          onDone={() => { void loadBatches(); }}
+        {/* 批次统一确认弹窗（回滚 / 彻底删除，单条与批量共用） */}
+        <BatchConfirmDialog
+          open={batchAction !== null}
+          action={batchAction}
+          pickedCount={batchPicked.size}
+          contactsCount={pickedContacts}
+          running={batchRunning}
+          singleBatchId={batchPicked.size === 1 ? [...batchPicked][0] : undefined}
+          onConfirm={() => void runBatchAction()}
+          onOpenChange={(o: boolean) => { if (!o) setBatchAction(null); }}
         />
 
-<AlertDialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
-          <AlertDialogContent className="max-w-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
-                <Undo2 className="w-5 h-5" strokeWidth={1.5} />
-                回滚批次
-              </AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-3">
-                  <p>
-                    批次「{batchToRevert?.name}」采用<strong>保守回滚</strong>：
-                    只删除该批次带来、且未被后续操作改动过的数据。
-                  </p>
-                  {revertDiff && (
-                    <>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-md border border-red-200 bg-red-50/60 p-3">
-                          <p className="font-medium text-red-700">
-                            将删除 {revertDiff.willDelete} 条
-                          </p>
-                          <p className="text-xs text-red-600/80 mt-1">
-                            该批次新建且未被后续操作改动
-                          </p>
-                        </div>
-                        <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
-                          <p className="font-medium text-amber-700">
-                            将保留 {revertDiff.willKeep} 条
-                          </p>
-                          <p className="text-xs text-amber-600/80 mt-1">
-                            已被后续操作改动，不做破坏性删除
-                          </p>
-                        </div>
-                      </div>
-                      {revertDiff.modified.length > 0 && (
-                        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 max-h-40 overflow-y-auto">
-                          <p className="text-xs font-medium text-slate-600 mb-1.5">
-                            被保留的联系人：
-                          </p>
-                          <ul className="space-y-1">
-                            {revertDiff.modified.slice(0, 20).map((m) => (
-                              <li key={m.id} className="text-xs text-slate-500">
-                                {m.name} — {m.reason}
-                              </li>
-                            ))}
-                            {revertDiff.modified.length > 20 && (
-                              <li className="text-xs text-slate-400">
-                                ...另有 {revertDiff.modified.length - 20} 条
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-500">{revertDiff.note}</p>
-                      <p className="text-xs text-slate-500">
-                        其他批次的数据不受任何影响。
-                      </p>
-                    </>
-                  )}
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
-                onClick={() => void confirmRevertBatch()}
-                disabled={reverting}
-              >
-                {reverting ? '回滚中...' : '确认回滚'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+
+
       </div>
     </div>
   );
