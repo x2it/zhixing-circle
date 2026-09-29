@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="知行朋友圈 — 知人，知行。客户分层 × 标签分组 × 跟进提醒，把人脉变成资产">
+  <meta name="keywords" content="知行朋友圈,人脉管理,客户分层,跟进记录,ABC分层">
+  <meta name="application-name" content="知行朋友圈">
+  <link rel="icon" href="/favicon.svg">
+  <title>知行朋友圈</title>
+  <!-- 平台构建会把 title 换成 {{appName}} 占位符（注入平台应用名），此处强制纠正 -->
+  <script>try { document.title = '知行朋友圈'; } catch (e) {}</script>
+  <script>
+    try {
+      window.__platform__ = JSON.parse('{{{__platform__}}}');
+    } catch (e) {
+      console.error('Failed to parse __platform__', e);
+    }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/client/src/index.tsx"></script>
+</body>
+
+</html>

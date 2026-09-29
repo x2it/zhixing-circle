@@ -1,0 +1,791 @@
+:root {
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  --button-outline: rgba(0, 0, 0, 0.08);
+  --badge-outline: rgba(0, 0, 0, 0.06);
+  --opaque-button-border-intensity: -6;
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.06);
+
+  /* Light theme — Windows 11 Fluent 风格：Mica 浅灰底 / 白卡 / #0067C0 强调 */
+  --background: hsl(210 11% 96%);
+  --foreground: hsl(0 0% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 11%);
+  --primary: hsl(206 100% 38%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(0 0% 96%);
+  --secondary-foreground: hsl(0 0% 11%);
+  --muted: hsl(210 7% 96%);
+  --muted-foreground: hsl(0 0% 38%);
+  --accent: hsl(206 65% 92%);
+  --accent-foreground: hsl(206 100% 20%);
+  --info: hsl(206 100% 45%);
+  --info-foreground: hsl(0 0% 100%);
+  --destructive: hsl(6 76% 44%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(120 78% 27%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 42%);
+  --warning-foreground: hsl(0 0% 100%);
+  --border: hsl(0 0% 90%);
+  --input: hsl(0 0% 84%);
+  --ring: hsl(206 100% 38%);
+  --chart-1: hsl(206 100% 38%);
+  --chart-2: hsl(199 84% 48%);
+  --chart-3: hsl(210 40% 60%);
+  --chart-4: hsl(210 20% 75%);
+  --chart-5: hsl(210 15% 88%);
+  --sidebar: hsl(0 0% 100% / 0.72);
+  --sidebar-foreground: hsl(0 0% 11%);
+  --sidebar-primary: hsl(206 100% 38%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(206 65% 92%);
+  --sidebar-accent-foreground: hsl(206 100% 20%);
+  --sidebar-border: hsl(0 0% 90%);
+  --sidebar-ring: hsl(206 100% 38%);
+
+  --primary-border: hsl(from hsl(206 100% 38%) h s calc(l + var(--opaque-button-border-intensity)));
+  --secondary-border: hsl(from hsl(0 0% 96%) h s calc(l + var(--opaque-button-border-intensity)));
+  --destructive-border: hsl(from hsl(6 76% 44%) h s calc(l + var(--opaque-button-border-intensity)));
+  --accent-border: hsl(from hsl(206 65% 92%) h s calc(l + var(--opaque-button-border-intensity)));
+  --muted-border: hsl(from hsl(210 7% 96%) h s calc(l + var(--opaque-button-border-intensity)));
+
+  /* Win11 字体栈：Segoe UI Variable 优先，中文回退雅黑/苹方 */
+  --font-sans:
+    'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system,
+    'BlinkMacSystemFont', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft Yahei',
+    'Helvetica Neue', 'Tahoma', 'Arial', 'Hiragino Sans GB', 'sans-serif',
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-serif:
+    'Segoe UI Variable Display', 'Segoe UI', ui-serif, Georgia, Cambria,
+    'Times New Roman', Times, serif;
+  --font-mono: 'Cascadia Mono', 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  /* Win11 控件圆角 8px */
+  --radius: 0.5rem;
+  --shadow-x: 0px;
+  --shadow-y: 2px;
+  --shadow-blur: 4px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.05;
+  --shadow-color: #000000;
+  --shadow-2xs: 0 1px 2px 0 hsl(0 0% 0% / 0.03);
+  --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.04);
+  --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.05);
+  --shadow: 0 2px 4px 0 hsl(0 0% 0% / 0.05);
+  --shadow-md: 0 4px 8px 0 hsl(0 0% 0% / 0.06);
+  --shadow-lg: 0 8px 16px 0 hsl(0 0% 0% / 0.08);
+  --shadow-xl: 0 16px 32px 0 hsl(0 0% 0% / 0.12);
+  --shadow-2xl: 0 24px 48px 0 hsl(0 0% 0% / 0.16);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+/* ============================================================
+   Mica 质感背景：极淡的蓝/紫环境光渐变（Win11 桌面壁纸透色效果）
+   ============================================================ */
+body {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1200px 800px at 88% -10%, hsl(206 100% 50% / 0.05), transparent 60%),
+    radial-gradient(1000px 700px at -10% 110%, hsl(262 70% 60% / 0.035), transparent 55%);
+  background-attachment: fixed;
+}
+
+:root[data-theme='dark'] body {
+  background-image:
+    radial-gradient(1200px 800px at 88% -10%, hsl(199 100% 55% / 0.04), transparent 60%),
+    radial-gradient(1000px 700px at -10% 110%, hsl(262 60% 60% / 0.025), transparent 55%);
+}
+
+/* ============================================================
+   Win11 输入聚焦底线（Fluent 标志性交互）
+   只作用于裸文本输入，checkbox/radio/range 排除；
+   组件自带 focus ring 的优先级更高，互不冲突。
+   ============================================================ */
+input:focus:not([type='checkbox']):not([type='radio']):not([type='range']),
+textarea:focus,
+select:focus {
+  box-shadow: inset 0 -2px 0 0 var(--primary);
+}
+
+/* ============================================================
+   Win11 导航选中态：左侧 3px accent 指示条（NavigationView 风格）
+   ============================================================ */
+.win-nav-item {
+  position: relative;
+}
+.win-nav-item.win-nav-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--sidebar-primary);
+}
+
+/* 亚克力材质：半透明 + 模糊 + 饱和提升 */
+.win-acrylic {
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+}
+
+/* ============================================================
+   滚动条：全局隐藏，但完整保留滚动能力
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+html,
+body {
+  scrollbar-width: none;
+}
+
+/* 主题切换时所有颜色属性平滑过渡 */
+:root * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+
+:root[data-theme='warm'] * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+
+/* Dark theme — Windows 11 夜间：中性深灰 #202020 底 / #2B2B2B 卡 / #4CC2FF 强调 */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: hsl(0 0% 13%);
+  --foreground: hsl(0 0% 97%);
+  --card: hsl(0 0% 17%);
+  --card-foreground: hsl(0 0% 97%);
+  --popover: hsl(0 0% 18%);
+  --popover-foreground: hsl(0 0% 97%);
+  --primary: hsl(199 100% 65%);
+  --primary-foreground: hsl(0 0% 10%);
+  --secondary: hsl(0 0% 22%);
+  --secondary-foreground: hsl(0 0% 97%);
+  --muted: hsl(0 0% 20%);
+  --muted-foreground: hsl(0 0% 63%);
+  --accent: hsl(0 0% 26%);
+  --accent-foreground: hsl(0 0% 97%);
+  --info: hsl(199 100% 65%);
+  --info-foreground: hsl(0 0% 10%);
+  --destructive: hsl(6 79% 58%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(120 55% 48%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 55%);
+  --warning-foreground: hsl(0 0% 10%);
+  --border: hsl(0 0% 27%);
+  --input: hsl(0 0% 27%);
+  --ring: hsl(199 100% 65%);
+  --chart-1: hsl(199 100% 65%);
+  --chart-2: hsl(206 90% 55%);
+  --chart-3: hsl(210 45% 48%);
+  --chart-4: hsl(210 25% 38%);
+  --chart-5: hsl(210 15% 28%);
+  --sidebar: hsl(0 0% 13% / 0.78);
+  --sidebar-foreground: hsl(0 0% 95%);
+  --sidebar-primary: hsl(199 100% 65%);
+  --sidebar-primary-foreground: hsl(0 0% 10%);
+  --sidebar-accent: hsl(199 55% 26%);
+  --sidebar-accent-foreground: hsl(199 100% 88%);
+  --sidebar-border: hsl(0 0% 24%);
+  --sidebar-ring: hsl(199 100% 65%);
+
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.08);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.08);
+
+  --primary-border: hsl(from hsl(199 100% 65%) h s calc(l + var(--opaque-button-border-intensity)));
+  --secondary-border: hsl(from hsl(0 0% 22%) h s calc(l + var(--opaque-button-border-intensity)));
+  --accent-border: hsl(from hsl(0 0% 26%) h s calc(l + var(--opaque-button-border-intensity)));
+  --muted-border: hsl(from hsl(0 0% 20%) h s calc(l + var(--opaque-button-border-intensity)));
+
+  --shadow-2xs: 0 1px 2px 0 hsl(0 0% 0% / 0.2);
+  --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.25);
+  --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.3);
+  --shadow: 0 2px 4px 0 hsl(0 0% 0% / 0.3);
+  --shadow-md: 0 4px 8px 0 hsl(0 0% 0% / 0.35);
+  --shadow-lg: 0 8px 16px 0 hsl(0 0% 0% / 0.4);
+  --shadow-xl: 0 16px 32px 0 hsl(0 0% 0% / 0.45);
+  --shadow-2xl: 0 24px 48px 0 hsl(0 0% 0% / 0.5);
+}
+
+/* 夜间模式下不再画滚动条（统一隐藏） */
+:root[data-theme='dark'] * {
+  scrollbar-width: none;
+}
+
+/* Warm theme — 暖米白底/暖米色卡片（保留差异化主题） */
+:root[data-theme='warm'] {
+  --background: hsl(36 35% 94%);
+  --foreground: hsl(25 20% 18%);
+  --card: hsl(40 50% 97%);
+  --card-foreground: hsl(25 20% 18%);
+  --popover: hsl(40 50% 97%);
+  --popover-foreground: hsl(25 20% 18%);
+  --primary: hsl(25 30% 28%);
+  --primary-foreground: hsl(40 50% 97%);
+  --secondary: hsl(36 28% 90%);
+  --secondary-foreground: hsl(25 20% 20%);
+  --muted: hsl(36 30% 91%);
+  --muted-foreground: hsl(25 10% 45%);
+  --accent: hsl(36 28% 90%);
+  --accent-foreground: hsl(25 20% 20%);
+  --info: hsl(25 30% 28%);
+  --info-foreground: hsl(40 50% 97%);
+  --border: hsl(36 25% 82%);
+  --input: hsl(36 25% 82%);
+  --ring: hsl(25 30% 28%);
+  --chart-1: hsl(25 40% 40%);
+  --chart-2: hsl(25 25% 55%);
+  --chart-3: hsl(30 15% 65%);
+  --chart-4: hsl(35 10% 75%);
+  --chart-5: hsl(40 15% 85%);
+  --sidebar: hsl(36 32% 92% / 0.78);
+  --sidebar-foreground: hsl(25 20% 18%);
+  --sidebar-primary: hsl(25 30% 28%);
+  --sidebar-primary-foreground: hsl(40 50% 97%);
+  --sidebar-accent: hsl(36 25% 88%);
+  --sidebar-accent-foreground: hsl(25 20% 20%);
+  --sidebar-border: hsl(36 25% 82%);
+  --sidebar-ring: hsl(25 30% 28%);
+
+  --primary-border: hsl(from hsl(25 30% 28%) h s calc(l + var(--opaque-button-border-intensity)));
+  --secondary-border: hsl(from hsl(36 28% 90%) h s calc(l + var(--opaque-button-border-intensity)));
+  --accent-border: hsl(from hsl(36 28% 90%) h s calc(l + var(--opaque-button-border-intensity)));
+  --muted-border: hsl(from hsl(36 30% 91%) h s calc(l + var(--opaque-button-border-intensity)));
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+@layer utilities {
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .no-default-hover-elevate {}
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before,
+  .toggle-elevate-2::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .toggle-elevate.toggle-elevated::before {
+    background-color: var(--elevate-2);
+  }
+
+  .border.toggle-elevate::before {
+    inset: -1px;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative;
+    z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0px;
+    border-radius: inherit;
+    z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-1);
+  }
+
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+    background-color: var(--elevate-2);
+  }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+    inset: -1px;
+  }
+}
+
+/* ============================================================
+   Light 模式：硬编码琥珀色重定向 → Win11 蓝
+   页面里大量 bg-amber-600 / text-amber-700 等固定色，
+   在明亮/夜间主题下统一重映射为 Win11 强调蓝（暖阳主题保留琥珀原味）。
+   ============================================================ */
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-50 {
+  background-color: hsl(206 100% 38% / 0.08);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-50\/40 {
+  background-color: hsl(206 100% 38% / 0.06);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-50\/50 {
+  background-color: hsl(206 100% 38% / 0.08);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-50\/60 {
+  background-color: hsl(206 100% 38% / 0.1);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:bg-amber-50:hover {
+  background-color: hsl(206 100% 38% / 0.12);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-100 {
+  background-color: hsl(206 100% 38% / 0.14);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:bg-amber-100:hover {
+  background-color: hsl(206 100% 38% / 0.2);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-600 {
+  background-color: hsl(206 100% 38%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .bg-amber-700 {
+  background-color: hsl(206 100% 34%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:bg-amber-700:hover {
+  background-color: hsl(206 100% 42%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .active\:bg-amber-800:active {
+  background-color: hsl(206 100% 30%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .text-amber-600 {
+  color: hsl(206 100% 40%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .text-amber-600\/80 {
+  color: hsl(206 100% 40% / 0.8);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .text-amber-700 {
+  color: hsl(206 100% 36%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .text-amber-800 {
+  color: hsl(206 100% 30%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:text-amber-600:hover {
+  color: hsl(206 100% 44%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:text-amber-700:hover {
+  color: hsl(206 100% 40%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .hover\:text-amber-800:hover {
+  color: hsl(206 100% 34%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .border-amber-200 {
+  border-color: hsl(206 100% 38% / 0.3);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .border-amber-300 {
+  border-color: hsl(206 100% 38% / 0.45);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .border-amber-600 {
+  border-color: hsl(206 100% 38%);
+}
+:root:not([data-theme='warm']):not([data-theme='dark']) .focus\:ring-amber-500:focus {
+  --tw-ring-color: hsl(206 100% 38% / 0.5);
+}
+
+/* ============================================================
+   夜间模式：硬编码色板重定向（Win11 中性深灰系）
+   项目里大量页面直接写了 bg-white / text-slate-500 / border-slate-200
+   这类固定色，它们不读主题变量。这里在 dark 主题下把这套固定色
+   统一重映射为 Win11 深色语义色，让夜间模式真正生效。
+   注：这些规则不带 @layer，优先级天然高于 Tailwind 的 utilities 层。
+   ============================================================ */
+
+/* —— 中性表面：白 / slate —— */
+:root[data-theme='dark'] .bg-white,
+:root[data-theme='dark'] .hover\:bg-white:hover {
+  background-color: hsl(0 0% 17%);
+}
+:root[data-theme='dark'] .bg-white\/60 {
+  background-color: hsl(0 0% 17% / 0.6);
+}
+:root[data-theme='dark'] .bg-slate-50,
+:root[data-theme='dark'] .hover\:bg-slate-50:hover {
+  background-color: hsl(0 0% 15%);
+}
+:root[data-theme='dark'] .bg-slate-50\/70 {
+  background-color: hsl(0 0% 20% / 0.7);
+}
+:root[data-theme='dark'] .hover\:bg-slate-50\/50:hover {
+  background-color: hsl(0 0% 20% / 0.5);
+}
+:root[data-theme='dark'] .bg-slate-100,
+:root[data-theme='dark'] .hover\:bg-slate-100:hover {
+  background-color: hsl(0 0% 24%);
+}
+:root[data-theme='dark'] .bg-slate-200,
+:root[data-theme='dark'] .hover\:bg-slate-200:hover {
+  background-color: hsl(0 0% 29%);
+}
+:root[data-theme='dark'] .bg-slate-300 {
+  background-color: hsl(0 0% 34%);
+}
+:root[data-theme='dark'] .bg-slate-500 {
+  background-color: hsl(0 0% 45%);
+}
+:root[data-theme='dark'] .bg-slate-700 {
+  background-color: hsl(0 0% 36%);
+}
+:root[data-theme='dark'] .bg-black\/50 {
+  background-color: hsl(0 0% 0% / 0.66);
+}
+:root[data-theme='dark'] .bg-black\/40 {
+  background-color: hsl(0 0% 0% / 0.55);
+}
+
+/* —— 中性文字：slate —— */
+:root[data-theme='dark'] .text-slate-900 {
+  color: hsl(0 0% 96%);
+}
+:root[data-theme='dark'] .text-slate-800 {
+  color: hsl(0 0% 92%);
+}
+:root[data-theme='dark'] .text-slate-700 {
+  color: hsl(0 0% 86%);
+}
+:root[data-theme='dark'] .text-slate-600 {
+  color: hsl(0 0% 78%);
+}
+:root[data-theme='dark'] .text-slate-500 {
+  color: hsl(0 0% 68%);
+}
+:root[data-theme='dark'] .text-slate-400 {
+  color: hsl(0 0% 58%);
+}
+:root[data-theme='dark'] .text-slate-300 {
+  color: hsl(0 0% 45%);
+}
+:root[data-theme='dark'] .hover\:text-slate-600:hover {
+  color: hsl(0 0% 86%);
+}
+:root[data-theme='dark'] .hover\:text-slate-700:hover {
+  color: hsl(0 0% 92%);
+}
+:root[data-theme='dark'] .group:hover .group-hover\:text-slate-500 {
+  color: hsl(0 0% 68%);
+}
+
+/* —— 中性描边：slate —— */
+:root[data-theme='dark'] .border-slate-100 {
+  border-color: hsl(0 0% 22%);
+}
+:root[data-theme='dark'] .border-slate-200 {
+  border-color: hsl(0 0% 26%);
+}
+:root[data-theme='dark'] .border-slate-300 {
+  border-color: hsl(0 0% 32%);
+}
+:root[data-theme='dark'] .border-slate-700 {
+  border-color: hsl(0 0% 34%);
+}
+:root[data-theme='dark'] .border-slate-800 {
+  border-color: hsl(0 0% 40%);
+}
+:root[data-theme='dark'] .hover\:border-slate-300:hover {
+  border-color: hsl(0 0% 40%);
+}
+
+/* —— 琥珀（主强调色）→ Win11 dark 浅蓝 —— */
+:root[data-theme='dark'] .bg-amber-50 {
+  background-color: hsl(199 100% 65% / 0.12);
+}
+:root[data-theme='dark'] .bg-amber-50\/40 {
+  background-color: hsl(199 100% 65% / 0.1);
+}
+:root[data-theme='dark'] .bg-amber-50\/50 {
+  background-color: hsl(199 100% 65% / 0.12);
+}
+:root[data-theme='dark'] .bg-amber-50\/60 {
+  background-color: hsl(199 100% 65% / 0.16);
+}
+:root[data-theme='dark'] .hover\:bg-amber-50:hover {
+  background-color: hsl(199 100% 65% / 0.18);
+}
+:root[data-theme='dark'] .bg-amber-100 {
+  background-color: hsl(199 100% 65% / 0.22);
+}
+:root[data-theme='dark'] .hover\:bg-amber-100:hover {
+  background-color: hsl(199 100% 65% / 0.3);
+}
+:root[data-theme='dark'] .bg-amber-600 {
+  background-color: hsl(199 100% 48%);
+}
+:root[data-theme='dark'] .bg-amber-700 {
+  background-color: hsl(199 100% 42%);
+}
+:root[data-theme='dark'] .hover\:bg-amber-700:hover {
+  background-color: hsl(199 100% 56%);
+}
+:root[data-theme='dark'] .active\:bg-amber-800:active {
+  background-color: hsl(199 100% 38%);
+}
+:root[data-theme='dark'] .text-amber-600 {
+  color: hsl(199 100% 74%);
+}
+:root[data-theme='dark'] .text-amber-600\/80 {
+  color: hsl(199 100% 74% / 0.8);
+}
+:root[data-theme='dark'] .text-amber-700 {
+  color: hsl(199 100% 78%);
+}
+:root[data-theme='dark'] .text-amber-800 {
+  color: hsl(199 100% 82%);
+}
+:root[data-theme='dark'] .hover\:text-amber-600:hover {
+  color: hsl(199 100% 78%);
+}
+:root[data-theme='dark'] .hover\:text-amber-700:hover {
+  color: hsl(199 100% 82%);
+}
+:root[data-theme='dark'] .hover\:text-amber-800:hover {
+  color: hsl(199 100% 86%);
+}
+:root[data-theme='dark'] .border-amber-200 {
+  border-color: hsl(199 100% 65% / 0.34);
+}
+:root[data-theme='dark'] .border-amber-300 {
+  border-color: hsl(199 100% 65% / 0.46);
+}
+:root[data-theme='dark'] .border-amber-600 {
+  border-color: hsl(199 100% 48%);
+}
+:root[data-theme='dark'] .focus\:ring-amber-500:focus {
+  --tw-ring-color: hsl(199 100% 65% / 0.6);
+}
+
+/* —— 红（危险 / 分层 A）—— */
+:root[data-theme='dark'] .bg-red-50 {
+  background-color: hsl(6 76% 55% / 0.15);
+}
+:root[data-theme='dark'] .bg-red-50\/30 {
+  background-color: hsl(6 76% 55% / 0.12);
+}
+:root[data-theme='dark'] .bg-red-50\/60 {
+  background-color: hsl(6 76% 55% / 0.2);
+}
+:root[data-theme='dark'] .hover\:bg-red-50:hover {
+  background-color: hsl(6 76% 55% / 0.22);
+}
+:root[data-theme='dark'] .bg-red-100 {
+  background-color: hsl(6 76% 55% / 0.24);
+}
+:root[data-theme='dark'] .hover\:bg-red-100:hover {
+  background-color: hsl(6 76% 55% / 0.32);
+}
+:root[data-theme='dark'] .bg-red-600 {
+  background-color: hsl(6 76% 50%);
+}
+:root[data-theme='dark'] .hover\:bg-red-700:hover {
+  background-color: hsl(6 76% 60%);
+}
+:root[data-theme='dark'] .text-red-500 {
+  color: hsl(6 90% 74%);
+}
+:root[data-theme='dark'] .text-red-600 {
+  color: hsl(6 90% 76%);
+}
+:root[data-theme='dark'] .text-red-600\/80 {
+  color: hsl(6 90% 76% / 0.8);
+}
+:root[data-theme='dark'] .text-red-700 {
+  color: hsl(6 90% 80%);
+}
+:root[data-theme='dark'] .text-red-800 {
+  color: hsl(6 90% 84%);
+}
+:root[data-theme='dark'] .hover\:text-red-500:hover {
+  color: hsl(6 90% 82%);
+}
+:root[data-theme='dark'] .hover\:text-red-600:hover {
+  color: hsl(6 90% 84%);
+}
+:root[data-theme='dark'] .border-red-200 {
+  border-color: hsl(6 76% 55% / 0.35);
+}
+:root[data-theme='dark'] .border-red-500 {
+  border-color: hsl(6 76% 60% / 0.55);
+}
+:root[data-theme='dark'] .border-red-600 {
+  border-color: hsl(6 76% 55%);
+}
+
+/* —— 绿 / 翠绿（成功 / 分层 V）—— */
+:root[data-theme='dark'] .bg-green-50,
+:root[data-theme='dark'] .bg-emerald-50,
+:root[data-theme='dark'] .bg-green-100,
+:root[data-theme='dark'] .bg-emerald-100 {
+  background-color: hsl(142 60% 50% / 0.16);
+}
+:root[data-theme='dark'] .bg-green-600,
+:root[data-theme='dark'] .bg-emerald-600 {
+  background-color: hsl(142 60% 45%);
+}
+:root[data-theme='dark'] .hover\:bg-emerald-700:hover {
+  background-color: hsl(142 60% 54%);
+}
+:root[data-theme='dark'] .text-green-600,
+:root[data-theme='dark'] .text-emerald-600 {
+  color: hsl(142 60% 66%);
+}
+:root[data-theme='dark'] .text-emerald-700 {
+  color: hsl(142 60% 72%);
+}
+:root[data-theme='dark'] .border-green-200,
+:root[data-theme='dark'] .border-emerald-200 {
+  border-color: hsl(142 60% 50% / 0.35);
+}
+
+/* —— 蓝（信息 / 分层 C）—— Win11 dark 浅蓝 #4CC2FF —— */
+:root[data-theme='dark'] .bg-blue-50 {
+  background-color: hsl(199 100% 65% / 0.15);
+}
+:root[data-theme='dark'] .bg-blue-100 {
+  background-color: hsl(199 100% 65% / 0.24);
+}
+:root[data-theme='dark'] .bg-blue-500\/20 {
+  background-color: hsl(199 100% 65% / 0.28);
+}
+:root[data-theme='dark'] .bg-blue-600 {
+  background-color: hsl(199 100% 48%);
+}
+:root[data-theme='dark'] .hover\:bg-blue-700:hover {
+  background-color: hsl(199 100% 58%);
+}
+:root[data-theme='dark'] .text-blue-600 {
+  color: hsl(199 100% 74%);
+}
+:root[data-theme='dark'] .text-blue-900 {
+  color: hsl(199 100% 84%);
+}
+:root[data-theme='dark'] .border-blue-200 {
+  border-color: hsl(199 100% 65% / 0.35);
+}
+:root[data-theme='dark'] .border-blue-600 {
+  border-color: hsl(199 100% 55%);
+}
+
+/* —— 紫（标签）—— */
+:root[data-theme='dark'] .bg-violet-50 {
+  background-color: hsl(262 83% 66% / 0.15);
+}
+:root[data-theme='dark'] .bg-violet-100 {
+  background-color: hsl(262 83% 66% / 0.24);
+}
+:root[data-theme='dark'] .text-violet-600 {
+  color: hsl(262 90% 78%);
+}
+
+/* —— neutral 半透明层 —— */
+:root[data-theme='dark'] .bg-neutral-700\/10 {
+  background-color: hsl(0 0% 100% / 0.06);
+}
+:root[data-theme='dark'] .bg-neutral-700\/20,
+:root[data-theme='dark'] .bg-neutral-500\/20 {
+  background-color: hsl(0 0% 100% / 0.12);
+}
+:root[data-theme='dark'] .hover\:bg-neutral-700\/20:hover {
+  background-color: hsl(0 0% 100% / 0.16);
+}
